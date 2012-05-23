@@ -1,5 +1,11 @@
 /***************************************************************************
- *   Copyright (C) 08/2010 by Olaf Rempel                                  *
+ *   Modified for use with Raspy-Juice Exp Board for Rapsberry Pi          *
+ *   Based on ATmega168PA, 3.3V, 7.3728MHz resonator, LED on PD7.          *
+ *                                                                         *
+ *   Copyright (C) 2012-05 by Adnan Jalaludin                              *
+ *   adnan@singnet.com.sg                                                  *
+ *                                                                         *
+ *   Original source, Copyright (C) 08/2010 by Olaf Rempel                 *
  *   razzor@kopf-tisch.de                                                  *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -49,11 +55,17 @@
 #define VERSION_STRING		"TWIBOOT m168v2.1"
 #define SIGNATURE_BYTES		0x1E, 0x94, 0x06
 
+#elif defined (__AVR_ATmega168P__)
+#define VERSION_STRING		"TWIBOOT m168v2.1"
+#define SIGNATURE_BYTES		0x1E, 0x94, 0x0B
+#define APP_END				0x3c00
+
 #else
 #error MCU not supported
 #endif
 
 #define EEPROM_SUPPORT		1
+#define RASPY_JUICE		1
 
 /* 25ms @8MHz */
 #define TIMER_RELOAD		(0xFF - 195)
@@ -61,6 +73,15 @@
 /* 40 * 25ms */
 #define TIMEOUT			40
 
+#if defined (RASPY_JUICE)
+#define LED_INIT()		DDRD   =  ((1<<PORTD7) | (1<<PORTD6))
+#define LED_RT_ON()		
+#define LED_RT_OFF()	
+#define LED_GN_ON()		PORTD |=  (1<<PORTD7)
+#define LED_GN_OFF()	PORTD &= ~(1<<PORTD7)
+#define LED_GN_TOGGLE()	PORTD ^=  (1<<PORTD7)
+#define LED_OFF()		PORTD  =  0x00
+#else
 #define LED_INIT()		DDRB = ((1<<PORTB4) | (1<<PORTB5))
 #define LED_RT_ON()		PORTB |= (1<<PORTB4)
 #define LED_RT_OFF()		PORTB &= ~(1<<PORTB4)
@@ -68,6 +89,7 @@
 #define LED_GN_OFF()		PORTB &= ~(1<<PORTB5)
 #define LED_GN_TOGGLE()		PORTB ^= (1<<PORTB5)
 #define LED_OFF()		PORTB = 0x00
+#endif
 
 #define TWI_ADDRESS		0x29
 
@@ -201,7 +223,7 @@ static void write_eeprom_byte(uint8_t val)
 #if defined (__AVR_ATmega8__)
 	EECR |= (1<<EEMWE);
 	EECR |= (1<<EEWE);
-#elif defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__)
+#elif defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__) || defined (__AVR_ATmega168P__)
 	EECR |= (1<<EEMPE);
 	EECR |= (1<<EEPE);
 #endif
@@ -390,7 +412,7 @@ static void (*jump_to_app)(void) __attribute__ ((noreturn)) = 0x0000;
  * system reset. So disable it as soon as possible.
  * automagically called on startup
  */
-#if defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__)
+#if defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__) || defined (__AVR_ATmega168P__)
 void disable_wdt_timer(void) __attribute__((naked, section(".init3")));
 void disable_wdt_timer(void)
 {
@@ -414,7 +436,7 @@ int main(void)
 
 	TCCR0 = (1<<CS02) | (1<<CS00);
 	TIMSK = (1<<TOIE0);
-#elif defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__)
+#elif defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__) || defined (__AVR_ATmega168P__)
 	MCUCR = (1<<IVCE);
 	MCUCR = (1<<IVSEL);
 
@@ -441,7 +463,7 @@ int main(void)
 
 	GICR = (1<<IVCE);
 	GICR = (0<<IVSEL);
-#elif defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__)
+#elif defined (__AVR_ATmega88__) || defined (__AVR_ATmega168__) || defined (__AVR_ATmega168P__)
 	TIMSK0 = 0x00;
 	TCCR0B = 0x00;
 
