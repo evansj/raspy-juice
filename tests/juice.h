@@ -36,9 +36,9 @@
 #define __JUICE_H__
 
 #include <stdio.h>
+#include <avr/pgmspace.h>
 #include <avr/io.h>
-#include <util/delay.h>
-#define  msleep(X)	_delay_ms((X))
+
 
 /* 
  * PD7: AVR-to-RPI-GPIO7 activity signal (and LED) output
