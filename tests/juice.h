@@ -84,8 +84,8 @@
 #define PD5_ON()	(PORTD |=  (1<<PD5))
 #define PD5_OFF()	(PORTD &= ~(1<<PD5))
 
-#define RS485_TXEN_ON()	(PORTD |=  (1<<PC4))
-#define RS485_TXEN_OFF() (PORTD &= ~(1<<PC4))
+#define RS485_TXEN_ON()	(PORTD |=  (1<<PD4))
+#define RS485_TXEN_OFF() (PORTD &= ~(1<<PD4))
 
 #define RS232_TXD_HIGH() (PORTD |=  (1<<PD3))
 #define RS232_TXD_LOW()	(PORTD &= ~(1<<PD3))
@@ -107,6 +107,18 @@ void rs232_puts(char *);
 /* For avrgcc stdio.h */
 int rs232_putchar(char c, FILE *stream);
 int rs232_getchar(FILE *stream);
+
+void rs485_init(unsigned long baud);
+char rs485_havechar(void);
+char rs485_getc(void);
+void rs485_putc(char c);
+/* For avrgcc stdio.h */
+int rs485_putchar(char c, FILE *stream);
+int rs485_getchar(FILE *stream);
+
+
+
+
 
 void servo_init(void);
 void servo_set(uint8_t chan, int usec);
