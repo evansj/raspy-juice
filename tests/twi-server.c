@@ -56,7 +56,7 @@ void led_heartbeat(void)
 
 volatile int adcval;
 
-#define TWI_POLL_MODE 1
+
 void TWI_vect(void);
 
 int main(void)
@@ -65,15 +65,19 @@ int main(void)
 
 	JUICE_PCBA_PINS_INIT();
 	rs232_swuart_init();
+	rs485_init(115200);
 	servo_init();
 
+#if 1
+//#define TWI_POLL_MODE 1
 	TWAR = (AVRSLAVE_ADDR<<1);
 #ifdef TWI_POLL_MODE
 	TWCR = (1<<TWEA) | (1<<TWEN);
 #else
-	TWCR = (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
+	TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
 #endif
-    
+#endif
+
 	sei();
 	stdout = stdin = &rs232_stream;
 
@@ -113,26 +117,67 @@ ISR(ADC_vect)
 # define TWI_debug(fmt, ...)
 #endif
 
+volatile uint8_t bcnt;
+
 #ifdef TWI_POLL_MODE
 void TWI_vect(void)
 #else
 ISR(TWI_vect)
 #endif
 {
-	uint8_t data;
+	uint8_t data, twsr;
 	uint8_t ack = (1<<TWEA);
-	static uint8_t bcnt, reg, eebyte;
+	static uint8_t reg, eebyte;
 	static int servo_pwm, eeaddr;
-  
+	static uint16_t extdata;
+
 	bcnt++;
-	switch (TWSR & 0xF8) {
+	twsr = TWSR & 0xF8;
+	TWI_debug(PSTR("twsr = 0x%02x\n"), twsr);
+
+	switch (twsr) {
 	case 0x60:
-		TWI_debug(PSTR("\nSLA+W AVR slave addressed -> recv data and ACK\n"));
 		bcnt = 0;
-                TWCR |= (1<<TWINT) | (1<<TWEA);
-                break;
+        TWCR |= (1<<TWINT) | (1<<TWEA);
+		//TWI_debug(PSTR("\nSLA+W AVR slave addressed -> recv data and ACK\n"));
+        break;
 
 	case 0x80:
+		if (bcnt == 1) {
+			reg = TWDR;
+		}
+		else {
+			/* TODO: if reg is rs232/rs485 data, push to FIFO */
+			extdata = (TWDR << 8) | (extdata >> 8);
+		}
+
+		TWCR |= (1<<TWINT) | (1<<TWEA);
+
+		if (bcnt == 1) {
+			rs485_putc('A');
+		}
+
+		if (bcnt == 2) {
+			rs485_putc('B');
+		}
+
+		if (bcnt == 3) {
+			rs485_putc('C');
+		}
+
+		if (bcnt == 3) {
+			if ((reg >= 1) && (reg <= 4)) {
+				servo_pwm = extdata;
+				if (servo_pwm <  500) servo_pwm = 500;
+				if (servo_pwm > 2500) servo_pwm = 2500;
+				TWI_debug(PSTR("Setting servo %d to %dusec\n"), reg-1, servo_pwm);
+				servo_set(0, servo_pwm);
+			}
+		}
+		break;
+
+/* LATENCY TOO LONG */
+#if 0
 		TWI_debug(PSTR("prev SLA+W, data recvd, ACK returned -> recv data and ACK\n"));
 		data = TWDR;
 		switch (bcnt) {
@@ -192,8 +237,8 @@ ISR(TWI_vect)
 			break;
 		}
 		TWCR |= (1<<TWINT) | ack;
+#endif
 		break;
-	
 
 	case 0xA8:
 		TWI_debug(PSTR("\nSLA+R AVR slave addressed for read, so send data\n"));
@@ -228,18 +273,24 @@ ISR(TWI_vect)
 	
 		/* STOP or repeated START */
 	case 0xA0:
+		//TWCR = (1<<TWEN)|                                 // Enable TWI-interface and release TWI pins
+        //	(0<<TWIE)|(1<<TWINT)|                      // Enable interrupt and clear the flag
+        //	(1<<TWEA)|(0<<TWSTA)|(1<<TWSTO)|           // Wait for new address match
+        //	(0<<TWWC);                                 //
+		TWCR |= (1<<TWEN)|(1<<TWINT)|(1<<TWEA)|(1<<TWSTO);
 		TWI_debug(PSTR("STOP or repeated START, do what?\n"));
+		break;
 
 		/* data sent, NACK returned */
 	case 0xC0:
-		TWI_debug(PSTR("data sent, NACK returned, do what?\n"));
 		TWCR |= (1<<TWINT) | (1<<TWEA);
+		TWI_debug(PSTR("data sent, NACK returned, do what?\n"));
 		break;
 	
 		/* illegal state -> reset hardware */
 	case 0xF8:
-		TWI_debug(PSTR("illegal state, resetting hardware\n"));
 		TWCR |= (1<<TWINT) | (1<<TWSTO) | (1<<TWEA);
+		TWI_debug(PSTR("illegal state, resetting hardware\n"));
 		break;
 	}
 }

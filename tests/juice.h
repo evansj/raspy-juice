@@ -112,6 +112,7 @@ void rs485_init(unsigned long baud);
 char rs485_havechar(void);
 char rs485_getc(void);
 void rs485_putc(char c);
+void rs485_puts(char *s);
 /* For avrgcc stdio.h */
 int rs485_putchar(char c, FILE *stream);
 int rs485_getchar(FILE *stream);

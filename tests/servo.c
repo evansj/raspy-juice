@@ -52,7 +52,8 @@ void servo_init(void)
 	ICR1 = 2765;		// =TOP, frequency of servo-pin change
 	TCCR1A = 0b00000010;	// WGM11,10 = Fast PWM, TOP=ICR1
 	TCCR1B = 0b00011010;	// WGM13,12 = Fast PWM, prescale clk/8
-	TIMSK1 = (1<<OCIE1A)|(1<<TOIE1); // Enable Ovrflw & Match-Comp irqs
+	TIFR1  = 0b00100111;
+	TIMSK1 = (1<<OCIE1A) | (1<<TOIE1); // Enable Ovrflw & Match-Comp irqs
 }
 
 void servo_set(uint8_t chan, int usec)
@@ -69,6 +70,7 @@ void servo_set(uint8_t chan, int usec)
  ***********************************************************************/
 ISR(TIMER1_COMPA_vect)
 {
+#if 1
 	int pulse_width;
 	// disassert last servo pin, then increment index to 
 	// servo of interest for next overflow interrupt.
@@ -80,17 +82,20 @@ ISR(TIMER1_COMPA_vect)
 	servo_index = (servo_index + 1) % num_servos;
 	pulse_width = servo_table[servo_index];
 	OCR1A = pulse_width;
+#endif
 }
 
 
 ISR(TIMER1_OVF_vect)
 {
+#if 1
 	// start of new servo cycle, assert servo pin of interest
 	switch(servo_port[servo_index]) {
 	case 2: PORTB |= (1 << servo_pin[servo_index]); break;
 	case 3: PORTC |= (1 << servo_pin[servo_index]); break;
 	case 4: PORTD |= (1 << servo_pin[servo_index]); break;
 	}
+#endif
 }
 
 

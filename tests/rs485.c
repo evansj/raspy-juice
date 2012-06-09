@@ -10,7 +10,8 @@ void rs485_init(unsigned long baud)
 	UBRR0H = (unsigned char)(ubrr>>8);
 	UBRR0L = (unsigned char)(ubrr>>0);
 	/* Enable receiver and transmitter */
-	UCSR0B = (1<<RXEN0)|(1<<TXEN0);
+//	UCSR0B = (1<<RXEN0)|(1<<TXEN0);
+	UCSR0B = (1<<RXEN0);
 	/* Set frame format: Async,8,N,1 */
 	UCSR0C = 0b00000110;
 	RS485_TXEN_OFF();
@@ -48,6 +49,12 @@ void rs485_putc(char c)
 
 	UCSR0B = (1<<RXEN0);
 
+}
+
+void rs485_puts(char *s)
+{
+	while (*s)
+		rs485_putchar(*s++, NULL);
 }
 
 int rs485_putchar(char c, FILE *stream)
