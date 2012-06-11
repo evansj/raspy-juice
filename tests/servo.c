@@ -166,7 +166,8 @@ int main(void)
 		case 'f': servo_set(3, 1500); break;
 		case 'v': servo_set(3, 1000); break;
 			
-		default: BLINK2(50); break;
+		default: //BLINK2(50); 
+		   break;
 		}
 	}
 	return 0;

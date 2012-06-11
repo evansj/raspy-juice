@@ -37,7 +37,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = twi-server.o servo.o swuart.o
+OBJECTS = twi-server.o servo.o swuart.o rs485.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -55,6 +55,10 @@ servo.o: servo.c juice.h
 
 swuart.o: swuart.c juice.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+rs485.o: rs485.c juice.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
 
 ##Link
 $(TARGET).elf: $(OBJECTS)

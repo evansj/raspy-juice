@@ -70,7 +70,7 @@
  */
 
 #define JUICE_PCBA_PINS_INIT() {		\
-		DDRD =  0b11111010;		\
+		DDRD =  0b01111010;		\
 		PORTD = 0b00001010;		\
 		DDRC =  0b00001111;		\
 		PORTC = 0b00000000;		\
