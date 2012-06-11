@@ -236,6 +236,7 @@ ISR(TWI_vect)
 	static uint8_t bcnt;
 	uint8_t data;
 	uint8_t ack = (1<<TWEA);
+	uint8_t flash_it = 0;
 
 	switch (TWSR & 0xF8) {
 	/* SLA+W received, ACK returned -> receive data and ACK */
@@ -315,13 +316,30 @@ ISR(TWI_vect)
 				if (bcnt < sizeof(buf) +3) {
 					bcnt++;
 				} else {
-					write_flash_page();
+
+					/* 
+					 * 20100610 aj: hack here to return I2C asynchronously
+					 * because the Raspberry Pi I2C will time out and report
+					 * to the linux twiboot as 'failed to write to device
+					 */
+
+					flash_it = 1;
+					/* write_flash_page(); */
 					ack = (0<<TWEA);
+
 				}
 				break;
 #if (EEPROM_SUPPORT)
 			case CMD_WRITE_EEPROM:
-				write_eeprom_byte(data);
+
+				/* 
+				 * 20100610 aj: hack here to return I2C asynchronously
+				 * because the Raspberry Pi I2C will time out and report
+				 * to the linux twiboot as 'failed to write to device
+				 */
+
+				flash_it = 2;
+				/* write_eeprom_byte(data); */
 				bcnt++;
 				break;
 #endif
@@ -336,6 +354,13 @@ ISR(TWI_vect)
 			bcnt = 0;
 
 		TWCR |= (1<<TWINT) | ack;
+
+		if (flash_it == 1)
+			write_flash_page();
+		//if (flash_it == 2)
+		//	write_eeprom_byte(data);
+	
+
 		break;
 
 	/* SLA+R received, ACK returned -> send data */
