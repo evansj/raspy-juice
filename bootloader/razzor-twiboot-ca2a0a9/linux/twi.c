@@ -272,7 +272,6 @@ static int twi_read(struct multiboot *mboot, struct databuf *dbuf, int memtype)
             mboot->progress_cb(progress_msg, -1, -1);
             return -1;
         }
-
         pos += len;
     }
 
@@ -298,6 +297,13 @@ static int twi_write(struct multiboot *mboot, struct databuf *dbuf, int memtype)
             mboot->progress_cb(progress_msg, -1, -1);
             return -1;
         }
+
+       
+       /* sleep here: because MCU twiboot has been hacked for I2C flash_write
+	command to return asynchronously without waiting for flashing to 
+	complete */
+       usleep(20000);
+       
 
         pos += len;
     }
