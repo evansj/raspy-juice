@@ -68,15 +68,13 @@ int main(void)
 	rs485_init(115200);
 	servo_init();
     
-#if 1
-	//#define TWI_POLL_MODE 1
+//#define TWI_POLL_MODE 1
 	TWAR = (AVRSLAVE_ADDR<<1);
 # ifdef TWI_POLL_MODE
 	TWCR = (1<<TWEA) | (1<<TWEN);
 # else
 	TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
 # endif
-#endif
     
 	sei();
 	stdout = stdin = &rs232_stream;
@@ -219,17 +217,24 @@ void TWI_vect(void)
 		switch(reg) {
 		case GSTAT:
 			data = (rs232_havechar() ? RXA232 : 0) |
+				(rs485_havechar() ? RXA485 : 0) |
 				(eeprom_is_ready() ? 0 : EEBUSY) |
 				(ADCSRA & _BV(ADSC));
 			break;
-		    
+		case RS232D:
+			if (rs232_havechar())
+				data = rs232_getc();
+			break;
+		case RS485D:
+			if (rs485_havechar())
+				data = rs485_getc();
+			break;
 		case ADCDAT:
 			if (bcnt == 0)
 				data = ADCL;
 			if (bcnt == 1)
 				data = ADCH;
 			break;
-	    
 		case EEDATA:
 			data = eebyte;
 			break;
@@ -241,11 +246,7 @@ void TWI_vect(void)
 	
 		/* STOP or repeated START */
 	case 0xA0:
-		//TWCR = (1<<TWEN)|                                 // Enable TWI-interface and release TWI pins
-		//	(0<<TWIE)|(1<<TWINT)|                      // Enable interrupt and clear the flag
-		//	(1<<TWEA)|(0<<TWSTA)|(1<<TWSTO)|           // Wait for new address match
-		//	(0<<TWWC);                                 //
-		TWCR |= (1<<TWEN)|(1<<TWINT)|(1<<TWEA)|(1<<TWSTO);
+		TWCR |= (1<<TWEN) | (1<<TWINT) | (1<<TWEA) | (1<<TWSTO);
 		TWI_debug(PSTR("STOP or repeated START, do what?\n"));
 		break;
 	
@@ -257,7 +258,7 @@ void TWI_vect(void)
 	
 		/* illegal state -> reset hardware */
 	case 0xF8:
-		TWCR |= (1<<TWINT) | (1<<TWSTO) | (1<<TWEA);
+		TWCR |= (1<<TWINT) | (1<<TWEA) | (1<<TWSTO);
 		TWI_debug(PSTR("illegal state, resetting hardware\n"));
 		break;
 	}
