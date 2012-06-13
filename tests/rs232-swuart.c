@@ -1,5 +1,5 @@
 /***********************************************************************
- * swuart.c
+ * rs232-swuart.c
  * RS232 software UART driver for Raspy Juice (Raspberry Pi Exp Board)
  * Half-duplex, 9600, 8N1. Hardware pins based on juice.h
  * MCU: ATmega168A, 7.3728MHz Resonator
@@ -61,66 +61,90 @@ enum SWUART_STATES {
 };
 
 static volatile char swuart_state = IDLE;
-static volatile int  swuart_shft_reg;
-static volatile int  swuart_data_reg;
-static volatile char swuart_data_rdy = 0;
+static volatile int  swuart_recv_reg;
 static volatile int  swuart_xmit_reg;
+static volatile char rxhead, rxtail, txhead, txtail;
+
+#define RS232_RX_BUFSIZE 16
+#define RS232_TX_BUFSIZE 16
+#define RS232_RX_BUFMASK (RS232_RX_BUFSIZE - 1)
+#define RS232_TX_BUFMASK (RS232_TX_BUFSIZE - 1)
+#if    (RS232_RX_BUFSIZE & RS232_RX_BUFMASK)
+#  error RS232 RX buffer size is not a power of 2
+#endif
+#if    (RS232_TX_BUFSIZE & RS232_TX_BUFMASK)
+#  error RS232 TX buffer size is not a power of 2
+#endif
+unsigned char rs232_rxbuf[RS232_RX_BUFSIZE];
+unsigned char rs232_txbuf[RS232_TX_BUFSIZE];
 
 void rs232_swuart_init(void)
 {
-	/* enable falling-edge INT0 on PD2 pin */
-	EICRA |= ((1<<ISC01) | (0<<ISC00));
-	/* set timer2 prescaler, mode and run */
-	TCCR2A = (1<<WGM21) | (0<<WGM20);
-	TCCR2B = (0<<WGM22) | BPS_PRESCALER;
-	OCR2A = BPS_FULLPERIOD - 1;
-	swuart_state = IDLE;
-	RS232_TXD_HIGH();
-	TIMER2_INT_DISABLE();
-	PD2_INT0_ENABLE();
+    rxhead = rxtail = txhead = txtail = 0;
+
+    /* enable falling-edge INT0 on PD2 pin */
+    EICRA |= ((1<<ISC01) | (0<<ISC00));
+    /* set timer2 prescaler, mode and run */
+    TCCR2A = (1<<WGM21) | (0<<WGM20);
+    TCCR2B = (0<<WGM22) | BPS_PRESCALER;
+    OCR2A = BPS_FULLPERIOD - 1;
+    swuart_state = IDLE;
+    RS232_TXD_HIGH();
+    TIMER2_INT_DISABLE();
+    PD2_INT0_ENABLE();
 }
 
 void rs232_swuart_off(void)
 {
-	TIMER2_INT_DISABLE();
-	PD2_INT0_DISABLE();
-}
-
-char rs232_havechar(void)
-{
-	return swuart_data_rdy;
-}
-
-char rs232_getc(void)
-{
-	while (!rs232_havechar())
-		;
-	swuart_data_rdy = 0;
-	return (char)swuart_data_reg;
+    TIMER2_INT_DISABLE();
+    PD2_INT0_DISABLE();
 }
 
 void rs232_putc(char c)
 {
-	while (swuart_state != 0)
+	unsigned char tmphead, tmptail;
+	tmphead = (txhead +1) & RS232_TX_BUFMASK;
+	while (tmphead == txtail)
 		;
-    
-	PD2_INT0_DISABLE();
-	swuart_xmit_reg = c;
-	swuart_xmit_reg |= (1 << 8);
-    
-	swuart_state = XMIT_START;
-	RS232_TXD_LOW();
-	TCNT2 = 0;
-	TIMER2_INT_ENABLE();
+	rs232_txbuf[tmphead] = c;
+	txhead = tmphead;
+
+	/* if SWUART is idle, need to pump state machine, else let
+	 * the interrupt state machine handle the transmission */
+
+	if (swuart_state == IDLE) {
+		PD2_INT0_DISABLE();
+
+		tmptail = (txtail + 1) & RS232_TX_BUFMASK;
+		txtail = tmptail;
+		/* stuff in high stop bits */
+		swuart_xmit_reg = rs232_txbuf[tmptail] | 0xf00;
+		swuart_state = XMIT_START;
+		RS232_TXD_LOW();
+		TCNT2 = 0;
+		TIMER2_INT_ENABLE();
+	}
 }
 
-void rs232_puts(char *s)
+char rs232_havechar(void)
 {
-	while(*s) {
-		if (*s == '\r')
-			rs232_putc('\n');
-		rs232_putc(*s++);
-	}
+	return (rxhead != rxtail);
+}
+
+char rs232_getc(void)
+{
+    unsigned char tmptail;
+    while (rxhead == rxtail)
+	;
+    tmptail = (rxtail + 1) & RS232_RX_BUFMASK;
+    rxtail = tmptail;
+    return rs232_rxbuf[tmptail];
+
+}
+
+int rs232_getchar(FILE *stream)
+{
+	return rs232_getc();
 }
 
 int rs232_putchar(char c, FILE *stream)
@@ -131,9 +155,13 @@ int rs232_putchar(char c, FILE *stream)
 	return 0;
 }
 
-int rs232_getchar(FILE *stream)
+void rs232_puts(char *s)
 {
-	return rs232_getc();
+	while(*s) {
+		if (*s == '\r')
+			rs232_putc('\n');
+		rs232_putc(*s++);
+	}
 }
 
 
@@ -148,12 +176,16 @@ ISR(INT0_vect)
 	TIMER2_INT_ENABLE();
 	if (swuart_state == IDLE) {
 		swuart_state = RECV_START;
-		swuart_shft_reg = 0;
+		swuart_recv_reg = 0;
 		PD2_INT0_DISABLE();
 	}
 }
+
 ISR(TIMER2_COMPA_vect)
 {
+	unsigned char tmptail;
+	unsigned char tmphead;
+
 
 	OCR2A = BPS_FULLPERIOD - 1;
     
@@ -161,47 +193,69 @@ ISR(TIMER2_COMPA_vect)
 	if (swuart_state == IDLE)
 		return;
     
-	if (swuart_state < 16) {
+	if (swuart_state < XMIT_START) {
 		// PD5_ON();
 		/* process state machine for reception */
 		if (swuart_state < 9) {
-			swuart_shft_reg >>= 1;
+			swuart_recv_reg >>= 1;
 			if (RS232_RXD())
-				swuart_shft_reg |= 0b10000000;
+				swuart_recv_reg |= 0b10000000;
 			swuart_state++;
 		}
 		else {
 			/* end reception */
-			swuart_data_reg = swuart_shft_reg;
-			swuart_data_rdy = 1;
 			TIMER2_INT_DISABLE();
 			PD2_INT0_ENABLE();
 			swuart_state = IDLE;
+
+			tmphead = (rxhead + 1) & RS232_RX_BUFMASK;
+			rxhead = tmphead;
+			if (tmphead == rxtail) {
+				/* error! recv buffer overflow routine */
+			}
+			rs232_rxbuf[tmphead] = swuart_recv_reg;
 		}
 	}
 	else {
-		/* swuart state must be bigger than 16, so */
-		/* process state machine for transmission  */
-		if (swuart_state < 25) {
+		/* swuart state here is bigger than XMIT_START, */
+		/* so state machine should be for transmission  */
+		/* (XMIT_START + 10) includes high stop bit	*/
+
+		if (swuart_state < (XMIT_START + 9)) {
+
 			if (swuart_xmit_reg & 0x01) {
 				RS232_TXD_HIGH();
 			}
 			else {
 				RS232_TXD_LOW();
 			}
-			//TIMER2_INT_ENABLE();
 			swuart_xmit_reg >>= 1;
 			swuart_state++;
 		}
 		else {
-			/* end transmission */
-			RS232_TXD_HIGH();
+			/* transmission of stop bit completed */
 			TIMER2_INT_DISABLE();
 			PD2_INT0_ENABLE();
 			swuart_state = IDLE;
 		}
 	}
+
+	/* Reception/Transmission has completed,
+	 * check if any data for transmission */
+	if ((swuart_state == IDLE) && (txhead != txtail)) {
+		tmptail = (txtail + 1) & RS232_TX_BUFMASK;
+		txtail = tmptail;
+		swuart_xmit_reg = rs232_txbuf[tmptail] | 0xf00;
+		swuart_state = XMIT_START;
+		RS232_TXD_LOW();
+		TCNT2 = 0;
+		TIMER2_INT_ENABLE();
+	}
 }
+
+
+
+
 
 #ifdef STANDALONE_UART_TEST
 int main(void)

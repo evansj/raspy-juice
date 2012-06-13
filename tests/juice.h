@@ -70,7 +70,7 @@
  */
 
 #define JUICE_PCBA_PINS_INIT() {		\
-		DDRD =  0b01111010;		\
+		DDRD =  0b11111010;		\
 		PORTD = 0b00001010;		\
 		DDRC =  0b00001111;		\
 		PORTC = 0b00000000;		\
@@ -110,9 +110,8 @@ int rs232_getchar(FILE *stream);
 
 void rs485_init(unsigned long baud);
 char rs485_havechar(void);
-char rs485_getc(void);
-void rs485_putc(char c);
-void rs485_puts(char *s);
+unsigned char rs485_getc(void);
+void rs485_putc(unsigned char c);
 /* For avrgcc stdio.h */
 int rs485_putchar(char c, FILE *stream);
 int rs485_getchar(FILE *stream);
