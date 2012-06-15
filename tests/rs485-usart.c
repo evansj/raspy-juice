@@ -52,8 +52,14 @@ static unsigned char rs485_rxbuf[RS485_RX_BUFSIZE];
 static unsigned char rs485_txbuf[RS485_TX_BUFSIZE];
 static volatile unsigned char rxhead, rxtail, txhead, txtail;
 
+/* localecho may be used for collision detection, currently unset */
+volatile unsigned localecho;
+
 void rs485_init(unsigned long baud)
 {
+    localecho = 0;
+    rxhead = rxtail = txhead = txtail = 0;
+
     /* Set baud rate */
     unsigned long ubrr = (F_CPU / 16 / baud - 1);
     UBRR0H = (unsigned char)(ubrr>>8);
@@ -61,10 +67,8 @@ void rs485_init(unsigned long baud)
     RS485_TXEN_OFF();
     /* Enable receiver and transmitter */
     UCSR0B = (1<<RXCIE0) |  (1<<RXEN0) | (1<<TXEN0) | (1<<TXCIE0);
-    //UCSR0B = (1<<RXEN0);
     /* Set frame format: Async,8,N,1 */
     UCSR0C = 0b00000110;
-    rxhead = rxtail = txhead = txtail = 0;
 }     
 
 ISR(USART_RX_vect)
@@ -78,7 +82,6 @@ ISR(USART_RX_vect)
 	/* error! recv buffer overflow routine */
     }
     rs485_rxbuf[tmphead] = data;
-    
 }
 
 ISR(USART_UDRE_vect)
@@ -87,6 +90,8 @@ ISR(USART_UDRE_vect)
     if (txhead != txtail) {
 	tmptail = (txtail + 1) & RS485_TX_BUFMASK;
 	txtail = tmptail;
+	if (localecho == 0)
+	    UCSR0B &= ~(1<<RXEN0);
 	RS485_TXEN_ON();
 	UDR0 = rs485_txbuf[tmptail];
     }
@@ -98,6 +103,7 @@ ISR(USART_UDRE_vect)
 ISR(USART_TX_vect)
 {
     RS485_TXEN_OFF();
+    UCSR0B |= (1<<RXEN0);
 }
 
 char rs485_havechar(void)
@@ -117,7 +123,7 @@ unsigned char rs485_getc(void)
 
 void rs485_putc(unsigned char c)
 {
-    uint8_t tmphead;
+    unsigned char tmphead;
     tmphead = (txhead +1) & RS485_TX_BUFMASK;
     while (tmphead == txtail)
 	;
@@ -128,20 +134,20 @@ void rs485_putc(unsigned char c)
 
 int rs485_getchar(FILE *stream)
 {
-	return rs485_getc();
+    return rs485_getc();
 }
 
 int rs485_putchar(char c, FILE *stream)
 {
-	if (c == '\n')
-		rs485_putc('\r');
-	rs485_putc(c);
-	return 0;
+    if (c == '\r')
+	rs485_putc('\n');
+    rs485_putc(c);
+    return 0;
 }
 
 void rs485_puts(char *s)
 {
-	while (*s)
-		rs485_putchar(*s++, NULL);
+    while (*s)
+	rs485_putchar(*s++, NULL);
 }
 
