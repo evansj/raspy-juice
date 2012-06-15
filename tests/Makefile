@@ -18,6 +18,6 @@ $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	-rm -rf $(OBJECTS) $(TARGET)
+	-rm -rf $(TARGET)
 
 
