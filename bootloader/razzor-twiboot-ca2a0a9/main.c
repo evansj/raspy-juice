@@ -26,6 +26,7 @@
 #include <avr/interrupt.h>
 #include <avr/boot.h>
 #include <avr/pgmspace.h>
+#include <util/delay.h>
 
 /*
  * atmega8:
@@ -64,16 +65,15 @@
 #error MCU not supported
 #endif
 
-#define EEPROM_SUPPORT		1
 #define RASPY_JUICE		1
+#define EEPROM_SUPPORT		0
 
-/* 25ms @8MHz */
-#define TIMER_RELOAD		(0xFF - 195)
+#if (RASPY_JUICE)
 
-/* 40 * 25ms */
-#define TIMEOUT			40
-
-#if defined (RASPY_JUICE)
+/* 17.8ms @14.7456MHz */
+#define TIMER_RELOAD		(0)
+/* 1 second timeout */
+#define TIMEOUT			56
 #define LED_INIT()		DDRD   =  ((1<<PORTD7) | (1<<PORTD6))
 #define LED_RT_ON()		
 #define LED_RT_OFF()	
@@ -81,7 +81,13 @@
 #define LED_GN_OFF()	PORTD &= ~(1<<PORTD7)
 #define LED_GN_TOGGLE()	PORTD ^=  (1<<PORTD7)
 #define LED_OFF()		PORTD  =  0x00
+
 #else
+
+/* 25ms @8MHz */
+#define TIMER_RELOAD		(0xFF - 195)
+/* 40 * 25ms */
+#define TIMEOUT			80
 #define LED_INIT()		DDRB = ((1<<PORTB4) | (1<<PORTB5))
 #define LED_RT_ON()		PORTB |= (1<<PORTB4)
 #define LED_RT_OFF()		PORTB &= ~(1<<PORTB4)
@@ -89,6 +95,7 @@
 #define LED_GN_OFF()		PORTB &= ~(1<<PORTB5)
 #define LED_GN_TOGGLE()		PORTB ^= (1<<PORTB5)
 #define LED_OFF()		PORTB = 0x00
+
 #endif
 
 #define TWI_ADDRESS		0x29
@@ -317,32 +324,31 @@ ISR(TWI_vect)
 					bcnt++;
 				} else {
 
-					/* 
-					 * 20100610 aj: hack here to return I2C asynchronously
-					 * because the Raspberry Pi I2C will time out and report
-					 * to the linux twiboot as 'failed to write to device
-					 */
-
-					flash_it = 1;
-					/* write_flash_page(); */
-					ack = (0<<TWEA);
-
-				}
-				break;
-#if (EEPROM_SUPPORT)
-			case CMD_WRITE_EEPROM:
-
 				/* 
-				 * 20100610 aj: hack here to return I2C asynchronously
+				 * 20100610 aj: hacks here to return I2C asynchronously
 				 * because the Raspberry Pi I2C will time out and report
 				 * to the linux twiboot as 'failed to write to device
 				 */
+#if (RASPY_JUICE)
+					flash_it = 1;
+#else	
+					write_flash_page();
+#endif
+					ack = (0<<TWEA);
+				}
+				break;
 
+#if (EEPROM_SUPPORT)
+			case CMD_WRITE_EEPROM:
+#if (RASPY_JUICE)
 				flash_it = 2;
-				/* write_eeprom_byte(data); */
+#else
+				write_eeprom_byte(data);
+#endif
+#endif
+
 				bcnt++;
 				break;
-#endif
 			default:
 				ack = (0<<TWEA);
 				break;
@@ -355,12 +361,14 @@ ISR(TWI_vect)
 
 		TWCR |= (1<<TWINT) | ack;
 
+#if (RASPY_JUICE)
 		if (flash_it == 1)
 			write_flash_page();
-		//if (flash_it == 2)
-		//	write_eeprom_byte(data);
-	
-
+#if (EEPROM_SUPPORT)
+		if (flash_it == 2)
+			write_eeprom_byte(data);
+#endif
+#endif
 		break;
 
 	/* SLA+R received, ACK returned -> send data */
@@ -393,6 +401,14 @@ ISR(TWI_vect)
 			data = 0xFF;
 			break;
 		}
+
+#if (RASPY_JUICE)
+			/* 
+			 * 20100610 aj: delay hack here because Raspy Juice running at
+			 * 14.7456MHZ causes I2C host driver to incorrectly read MSB.
+			 */
+			_delay_us(20);
+#endif
 
 		TWDR = data;
 		TWCR |= (1<<TWINT) | (1<<TWEA);
