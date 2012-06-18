@@ -180,6 +180,7 @@ void TWI_vect(void)
 		eeprom_write_byte((uint8_t *)eeaddr, data);
 	    }
 	    else if ((reg == REBOOT) && (data == BOOTVAL)) {
+		TWCR |= (1<<TWINT) | (1<<TWEA);
 		TWI_debug(PSTR("Resetting to bootloader\n\n"));
 		wdt_enable(WDTO_30MS);
 		while(1) {}; 

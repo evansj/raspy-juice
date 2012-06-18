@@ -36,10 +36,13 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
+/* Default for 1.5ms setting */
+#define SDEF	2764
+
 /* For servo_port[], PORTA = 1, PORTB = 2, etc */
-uint8_t servo_port[12]		= {    3,    3,    3,    3 };
-uint8_t servo_pin [12]		= {    0,    1,    2,    3 };
-volatile int servo_table[12]	= { 1382, 1382, 1382, 1382 };
+uint8_t servo_port[12]		= { 3,		3,	3,	3	};
+uint8_t servo_pin [12]		= { 0,		1,	2,	3	};
+volatile int servo_table[12]	= { SDEF,	SDEF,	SDEF,	SDEF	};
 volatile uint8_t num_servos = 4;
 volatile uint8_t servo_index = 0;
 
@@ -48,8 +51,8 @@ void servo_init(void)
 	// Init timer1 for servo-control:
 	// Resolution = cpuclk / prescale8 = 7.3728MHz = 1.085us
 	// Servo index change-rate = 2765 * above = 3ms
-	OCR1A = 1382;
-	ICR1 = 2765;		// =TOP, frequency of servo-pin change
+	OCR1A = SDEF;
+	ICR1 = 5528;		// =TOP, frequency of servo-pin change
 	TCCR1A = 0b00000010;	// WGM11,10 = Fast PWM, TOP=ICR1
 	TCCR1B = 0b00011010;	// WGM13,12 = Fast PWM, prescale clk/8
 	TIFR1  = 0b00100111;
@@ -61,7 +64,7 @@ void servo_set(uint8_t chan, int usec)
 	if (usec <  600) usec =  600;
 	if (usec > 2400) usec = 2400;
 	/* how did i get 9216 from 7.3728MHz cpu clock? */
-	long corrected = (long)usec * 9216 / 10000;
+	long corrected = (long)usec * 18432 / 10000;
 	servo_table[(int)chan] = (int)corrected;
 }
 

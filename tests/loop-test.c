@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <linux/i2c-dev.h>
+#include <linux/i2c-dev.h.new>
 #include <linux/fcntl.h>
 
 #define GSTAT	0x00
@@ -40,10 +40,10 @@ int main(int argc, char *argv[])
     unsigned char reg = 0x00; /* Device register to access */
     int rval, stat, c, b;
     char buf[10];
-    int servo0pwm = 1500, servo0spddir = 2;
-    int servo1pwm = 1500, servo1spddir = 2;
-    int servo2pwm = 1500, servo2spddir = 2;
-    int servo3pwm = 1500, servo3spddir = 2;
+    int servo0pwm = 1500, servo0spddir = 20;
+    int servo1pwm = 1500, servo1spddir = 20;
+    int servo2pwm = 1500, servo2spddir = 20;
+    int servo3pwm = 1500, servo3spddir = 20;
     
     printf("Hello, world!\n");
   
@@ -66,7 +66,8 @@ int main(int argc, char *argv[])
       printf("open i2c slave 0x%02x: succeeded.\n", addr);
 
 
-    
+#define SERVO_TEST 1    
+#ifdef SERVO_TEST
     rj_setservo(SERVO_0, servo0pwm);
     usleep(500000);
     rj_setservo(SERVO_1, servo1pwm);
@@ -75,13 +76,15 @@ int main(int argc, char *argv[])
     usleep(500000);
     rj_setservo(SERVO_3, servo3pwm);
     usleep(500000);
-
+#endif
 
 
     while (1) {
+
+	usleep(100000);
 	count++;
 
-	if ((count % 10) == 0) {
+	if ((count % 5) == 0) {
 	    printf("\33[2K\r%06d:", count);
 	    stat = rj_readstat();
 	    for (b = 7; b >= 0; b--)
@@ -110,7 +113,7 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	if ((count % 200) == 0) {
+	if ((count % 10) == 0) {
 	    sprintf(outbuf, "Hello 232!!! count = %d\n\r", count);
 	    rj232_send(outbuf, strlen(outbuf));
 	    sprintf(outbuf, "Hello 485!!! count = %d\n\r", count); 
@@ -118,6 +121,7 @@ int main(int argc, char *argv[])
 	}
 	
 
+#if SERVO_TEST
 	servo0pwm += servo0spddir;
 	if ((servo0pwm > 2000) || (servo0pwm < 1000))
 	    servo0spddir = -servo0spddir;
@@ -137,8 +141,8 @@ int main(int argc, char *argv[])
 	if ((servo3pwm > 2000) || (servo3pwm < 1000))
 	    servo3spddir = -servo3spddir;
 	rj_setservo(SERVO_3, servo3pwm);
+#endif
 
-	usleep(10000);
     }
     
 }
@@ -149,8 +153,9 @@ int rj_readbyte(int subreg, const char *caller)
     do {
 	rval = i2c_smbus_read_byte_data(file, subreg);
 	if (rval < 0) {
+	    printf("rB\n");
 	    retry--;
-	    usleep(10000);
+	    usleep(20000);
 	}
     } while ((rval < 0) && (retry > 0));
 
@@ -166,8 +171,9 @@ int rj_writebyte(int subreg, int data, const char *caller)
     do {
 	rval = i2c_smbus_write_byte_data(file, subreg, data);
 	if (rval < 0) {
+	    printf("wB\n");
 	    retry--;
-	    usleep(10000);
+	    usleep(20000);
 	}
     } while ((rval < 0) && (retry > 0));
 
@@ -183,9 +189,9 @@ int rj_writeword(int subreg, int data, const char *caller)
     do {
 	rval = i2c_smbus_write_word_data(file, subreg, data);
 	if (rval < 0) {
-	    printf("X\n");
+	    printf("wW\n");
 	    retry--;
-	    usleep(10000);
+	    usleep(20000);
 	}
     } while ((rval < 0) && (retry > 0));
 
