@@ -250,7 +250,7 @@ static int twi_open(struct multiboot *mboot)
     twi->eepromsize = (chipinfo[6] << 8) + chipinfo[7];
 
     printf("device         : %-16s (address: 0x%02X)\n", twi->device, twi->address);
-    printf("version        : %-16s (sig: 0x%02x 0x%02x 0x%02x => %s)\n", version, chipinfo[0], chipinfo[1], chipinfo[2], chipname);
+    printf("version        : %.16s (sig: 0x%02x 0x%02x 0x%02x => %s)\n", version, chipinfo[0], chipinfo[1], chipinfo[2], chipname);
     printf("flash size     : 0x%04x / %5d   (0x%02x bytes/page)\n", twi->flashsize, twi->flashsize, twi->pagesize);
     printf("eeprom size    : 0x%04x / %5d\n", twi->eepromsize, twi->eepromsize);
 
