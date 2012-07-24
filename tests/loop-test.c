@@ -33,6 +33,7 @@ char outbuf[BUFSIZE];
 
 int main(int argc, char *argv[])
 {
+    int i;
     int count = 0;
     int adapter_nr = 0; /* probably dynamically determined */
     char devname[20];
@@ -101,12 +102,21 @@ int main(int argc, char *argv[])
 		
 		if (stat & RXA485) {
 		    rval = rj485_read();
-		    printf("\nrs485: %s: \n", inbuf);
+		    printf("\nrs485: %s:\n", inbuf);
+		    for (i = 0; inbuf[i] != 0; i++)
+			printf("0x%02x ", inbuf[i]);
+		    printf("\n");
+		    
 		}
 		
 		if (stat & RXA232) {
 		    rval = rj232_read();
+		    for (i = 0; inbuf[i] != 0; i++)
+			inbuf[i] = inbuf[i] & 0x7f;
 		    printf("\nrs232: %s: \n", inbuf);
+		    for (i = 0; inbuf[i] != 0; i++)
+			printf("0x%02x ", inbuf[i]);
+		    printf("\n");
 		}
 		printf("");
 		
@@ -153,7 +163,7 @@ int rj_readbyte(int subreg, const char *caller)
     do {
 	rval = i2c_smbus_read_byte_data(file, subreg);
 	if (rval < 0) {
-	    printf("rB\n");
+	    printf("rB from %s\n", caller);
 	    retry--;
 	    usleep(20000);
 	}
@@ -171,7 +181,7 @@ int rj_writebyte(int subreg, int data, const char *caller)
     do {
 	rval = i2c_smbus_write_byte_data(file, subreg, data);
 	if (rval < 0) {
-	    printf("wB\n");
+	    printf("wB from %s\n", caller);
 	    retry--;
 	    usleep(20000);
 	}
@@ -189,7 +199,7 @@ int rj_writeword(int subreg, int data, const char *caller)
     do {
 	rval = i2c_smbus_write_word_data(file, subreg, data);
 	if (rval < 0) {
-	    printf("wW\n");
+	    printf("wW from %s\n", caller);
 	    retry--;
 	    usleep(20000);
 	}
@@ -220,7 +230,7 @@ int rj485_read(void)
 {
     int i = 0;
     while ((rj_readstat() & RXA485) && (i < BUFSIZE)) {
-	inbuf[i++] = rj485_getc();
+	inbuf[i++] = rj485_getc() & 0x7f;
     }
     inbuf[i] = 0;
     return i;
