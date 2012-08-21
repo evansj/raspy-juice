@@ -6,7 +6,8 @@ Submitted on Wed, 5 Oct 2011 14:57:03 +0300
 Slightly broken, the patch is now fixed and re-bundled up.
 
 # cd <your linux source tree>
-# patch -p1 <..../the patch file>
+# patch -p1 <..../the patch file 0001-rtc-pcf8523.patch>
+# patch -p1 <..../the patch file 0002-pcf8523-i2c-register-dt.patch>
 # make config and enable i2c, pcf8523
 # make zImage modules modules_install
 

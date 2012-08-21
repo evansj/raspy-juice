@@ -1,0 +1,36 @@
+diff --git a/arch/arm/mach-bcm2708/bcm2708.c b/arch/arm/mach-bcm2708/bcm2708.c
+index 0207807..503299c 100644
+--- a/arch/arm/mach-bcm2708/bcm2708.c
++++ b/arch/arm/mach-bcm2708/bcm2708.c
+@@ -32,6 +32,7 @@
+ #include <linux/io.h>
+ #include <linux/module.h>
+ #include <linux/spi/spi.h>
++#include <linux/i2c.h>
+ 
+ #include <linux/version.h>
+ #include <linux/clkdev.h>
+@@ -560,6 +561,12 @@ int __init bcm_register_device(struct platform_device *pdev)
+ 	return ret;
+ }
+ 
++static struct i2c_board_info raspyjuice_i2c_devices[] = {
++	{
++		I2C_BOARD_INFO("pcf8523", 0x68),
++	},
++};
++
+ void __init bcm2708_init(void)
+ {
+ 	int i;
+@@ -608,6 +615,10 @@ void __init bcm2708_init(void)
+ 	spi_register_board_info(bcm2708_spi_devices,
+ 			ARRAY_SIZE(bcm2708_spi_devices));
+ #endif
++
++	i2c_register_board_info(0, raspyjuice_i2c_devices,
++				ARRAY_SIZE(raspyjuice_i2c_devices));
++
+ }
+ 
+ #define TIMER_PERIOD 10000	/* HZ in microsecs */
