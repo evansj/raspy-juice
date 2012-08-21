@@ -1,0 +1,12 @@
+2012-08-21 adnan
+
+This patch was found on http://lwn.net/Articles/461651/
+Submitted on Wed, 5 Oct 2011 14:57:03 +0300
+
+Slightly broken, the patch is now fixed and re-bundled up.
+
+# cd <your linux source tree>
+# patch -p1 <..../the patch file>
+# make config and enable i2c, pcf8523
+# make zImage modules modules_install
+
