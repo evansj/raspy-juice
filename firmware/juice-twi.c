@@ -170,9 +170,11 @@ void TWI_vect(void)
 		rs485_putc(data);
 	    }
 	    else if (reg == ADCMUX) {
-		/* Set mux here, use int 1.1V ref and start */
-		ADMUX = 0xc0 | (data & 0x0f);
-		ADCSRA = 0b11000000;
+	      /* Set mux here, force ADLAR bit to zero, and start */
+	      /* let user i2c setting to select the volt ref src  */
+	      ADMUX = (data & 0b11001111);
+	      //	      ADMUX = 0b11001110;
+	      ADCSRA = 0b11000111;
 	    }
 	    else if (reg == EEADDR) {
 		eeaddr = data;
@@ -238,10 +240,10 @@ void TWI_vect(void)
 		data = rs485_getc();
 	    break;
 	case ADCDAT:
-	    if (bcnt == 0)
-		data = ADCL;
 	    if (bcnt == 1)
-		data = ADCH;
+	      data = ADCH;
+	    if (bcnt == 0)
+	      data = ADCL;
 	    break;
 	case EEDATA:
 	    data = eebyte;
