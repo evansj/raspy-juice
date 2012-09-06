@@ -48,24 +48,23 @@ volatile uint8_t servo_index = 0;
 
 void servo_init(void)
 {
-	// Init timer1 for servo-control:
-	// Resolution = cpuclk / prescale8 = 7.3728MHz = 1.085us
-	// Servo index change-rate = 2765 * above = 3ms
-	OCR1A = SDEF;
-	ICR1 = 5528;		// =TOP, frequency of servo-pin change
-	TCCR1A = 0b00000010;	// WGM11,10 = Fast PWM, TOP=ICR1
-	TCCR1B = 0b00011010;	// WGM13,12 = Fast PWM, prescale clk/8
-	TIFR1  = 0b00100111;
-	TIMSK1 = (1<<OCIE1A) | (1<<TOIE1); // Enable Ovrflw & Match-Comp irqs
+    // Init timer1 for servo-control:
+    // Resolution = cpuclk / prescale8 = 7.3728MHz = 1.085us
+    // Servo index change-rate = 2765 * above = 3ms
+    OCR1A = SDEF;
+    ICR1 = 5528;		// =TOP, frequency of servo-pin change
+    TCCR1A = 0b00000010;	// WGM11,10 = Fast PWM, TOP=ICR1
+    TCCR1B = 0b00011010;	// WGM13,12 = Fast PWM, prescale clk/8
+    TIFR1  = 0b00100111;
+    TIMSK1 = (1<<OCIE1A) | (1<<TOIE1); // Enable Ovrflw & Match-Comp irqs
 }
 
 void servo_set(uint8_t chan, int usec)
 {
-	if (usec <  600) usec =  600;
-	if (usec > 2400) usec = 2400;
-	/* how did i get 9216 from 7.3728MHz cpu clock? */
-	long corrected = (long)usec * 18432 / 10000;
-	servo_table[(int)chan] = (int)corrected;
+    if (usec <  600) usec =  600;
+    if (usec > 2400) usec = 2400;
+    long corrected = (long)usec * 18432 / 10000;
+    servo_table[(int)chan] = (int)corrected;
 }
 
 /***********************************************************************
@@ -73,107 +72,26 @@ void servo_set(uint8_t chan, int usec)
  ***********************************************************************/
 ISR(TIMER1_COMPA_vect)
 {
-#if 1
-	int pulse_width;
-	// disassert last servo pin, then increment index to 
-	// servo of interest for next overflow interrupt.
-	switch(servo_port[servo_index]) {
-	case 2: PORTB &= ~(1 << servo_pin[servo_index]); break;
-	case 3: PORTC &= ~(1 << servo_pin[servo_index]); break;
-	case 4: PORTD &= ~(1 << servo_pin[servo_index]); break;
-	}
-	servo_index = (servo_index + 1) % num_servos;
-	pulse_width = servo_table[servo_index];
-	OCR1A = pulse_width;
-#endif
+    int pulse_width;
+    // disassert last servo pin, then increment index to 
+    // servo of interest for next overflow interrupt.
+    switch(servo_port[servo_index]) {
+    case 2: PORTB &= ~(1 << servo_pin[servo_index]); break;
+    case 3: PORTC &= ~(1 << servo_pin[servo_index]); break;
+    case 4: PORTD &= ~(1 << servo_pin[servo_index]); break;
+    }
+    servo_index = (servo_index + 1) % num_servos;
+    pulse_width = servo_table[servo_index];
+    OCR1A = pulse_width;
 }
 
 
 ISR(TIMER1_OVF_vect)
 {
-#if 1
-	// start of new servo cycle, assert servo pin of interest
-	switch(servo_port[servo_index]) {
-	case 2: PORTB |= (1 << servo_pin[servo_index]); break;
-	case 3: PORTC |= (1 << servo_pin[servo_index]); break;
-	case 4: PORTD |= (1 << servo_pin[servo_index]); break;
-	}
-#endif
+    // start of new servo cycle, assert servo pin of interest
+    switch(servo_port[servo_index]) {
+    case 2: PORTB |= (1 << servo_pin[servo_index]); break;
+    case 3: PORTC |= (1 << servo_pin[servo_index]); break;
+    case 4: PORTD |= (1 << servo_pin[servo_index]); break;
+    }
 }
-
-
-#ifdef STANDALONE_SERVO_TEST
-
-long led_timing[4] = { 100000L, 20000L, 10000L, 20000L }; 
-long led_counter = 0;
-uint8_t led_state = 0;
-void led_heartbeat(void)
-{
-	led_counter++;
-	if (led_counter > led_timing[led_state]) {
-		led_state++;
-		led_counter = 0;
-		if (led_state > 3)
-			led_state = 0;
-		if (led_state % 2)
-			LED_ON();
-		else
-			LED_OFF();
-	}
-}
-
-FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
-				      _FDEV_SETUP_RW);
-int main(void)
-{
-	char c;
-	
-	JUICE_PCBA_PINS_INIT();
-	rs232_swuart_init();
-	servo_init();
-    
-	sei();
-	
-	stdout = stdin = &rs232_stream;
-	printf_P(PSTR("\nStandalone Servo Test Application of Raspy Juice\n"));
-	printf_P(PSTR("Second line\n\n"));
-	
-	while(1) {
-
-		led_heartbeat();
-
-		if (rs232_havechar()) {
-			c = rs232_getc();
-			rs232_putc(c);
-		}
-		else
-			continue;
-		
-		switch(c) {
-		case '1': LED_OFF();	break;
-		case '2': LED_ON();	break;
-			
-		case 'z': servo_set(0, 2000); break;
-		case 'a': servo_set(0, 1500); break;
-		case 'q': servo_set(0, 1000); break;
-			
-		case 'x': servo_set(1, 2000); break;
-		case 's': servo_set(1, 1500); break;
-		case 'w': servo_set(1, 1000); break;
-			
-		case 'e': servo_set(2, 2000); break;
-		case 'd': servo_set(2, 1500); break;
-		case 'c': servo_set(2, 1000); break;
-			
-		case 'r': servo_set(3, 2000); break;
-		case 'f': servo_set(3, 1500); break;
-		case 'v': servo_set(3, 1000); break;
-			
-		default: //BLINK2(50); 
-		   break;
-		}
-	}
-	return 0;
-}
-#endif
-

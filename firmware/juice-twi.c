@@ -57,19 +57,25 @@ void led_heartbeat(void)
 
 volatile int adcval;
 
+ISR(ADC_vect)
+{
+    adcval = ADCW;
+    ADCSRA &= (~_BV(ADIE));		/* disable ADC interrupt */
+}
 
 void TWI_vect(void);
 
 int main(void)
 {
-    char c;
-    
     JUICE_PCBA_PINS_INIT();
+    
     rs232_swuart_init();
     rs485_init(115200);
     servo_init();
+    /* Enable ADC, and set clock prescaler */
+    ADCSRA = 0b10000111;
     
-//#define TWI_POLL_MODE 1
+    //#define TWI_POLL_MODE 1
 # ifdef TWI_POLL_MODE
     TWAR = (AVRSLAVE_ADDR << 1);
     TWCR = (1<<TWEA) | (1<<TWEN);
@@ -86,8 +92,8 @@ int main(void)
     
     while (1) {
 	led_heartbeat();
-
-//#define TEST_RS232_RS485_ECHO 1
+	
+	//#define TEST_RS232_RS485_ECHO 1
 #ifdef TEST_RS232_RS485_ECHO
 	/* Testing RS232/RS485 cross-echo */
 	c = 0;
@@ -100,7 +106,7 @@ int main(void)
 	    rs485_putchar(c, NULL);
 	}
 #endif
-
+	
 #ifdef TWI_POLL_MODE
 	if (TWCR & 0x80) {
 	    TWI_vect();
@@ -110,13 +116,6 @@ int main(void)
     }
     
 }
-
-ISR(ADC_vect)
-{
-    adcval = ADCW;
-    ADCSRA &= ~_BV(ADIE);		/* disable ADC interrupt */
-}
-
 #ifdef TWI_POLL_MODE
 # define TWI_debug(fmt, ...)	printf_P(fmt, ##__VA_ARGS__)
 #else
@@ -154,10 +153,12 @@ void TWI_vect(void)
 	switch (bcnt) {
 	case 0:
 	    break;
+
 	case 1:
 	    reg = data;
 	    TWI_debug(PSTR("reg addr = 0x%02x\n"), data);
 	    break;
+
 	case 2:
 	    TWI_debug(PSTR("data = 0x%02x\n"), data);
 	    if (reg >= 1 && reg <= 4) {
@@ -173,7 +174,6 @@ void TWI_vect(void)
 	      /* Set mux here, force ADLAR bit to zero, and start */
 	      /* let user i2c setting to select the volt ref src  */
 	      ADMUX = (data & 0b11001111);
-	      //	      ADMUX = 0b11001110;
 	      ADCSRA = 0b11000111;
 	    }
 	    else if (reg == EEADDR) {
@@ -190,11 +190,11 @@ void TWI_vect(void)
 	    }
 	    else
 		ack = 0;
-	    
 	    break;
+
 	default:
 	    TWI_debug(PSTR("extended data = 0x%02x\n"), data);
-	    if (reg >= 1 && reg <= 4) {
+	    if (reg >= SERVO_0 && reg <= SERVO_3) {
 		servo_pwm = (data << 8) | servo_pwm;
 		if (servo_pwm <  500) servo_pwm = 500;
 		if (servo_pwm > 2500) servo_pwm = 2500;
@@ -226,10 +226,11 @@ void TWI_vect(void)
 	data = 0;
 	switch(reg) {
 	case GSTAT:
-	    data = (rs232_havechar() ? RXA232 : 0) |
+	    data =
+		(rs232_havechar() ? RXA232 : 0) |
 		(rs485_havechar() ? RXA485 : 0) |
 		(eeprom_is_ready() ? 0 : EEBUSY) |
-		(ADCSRA & _BV(ADSC));
+		(ADCSRA & _BV(ADSC) ? ADCBUSY : 0);
 	    break;
 	case RS232D:
 	    if (rs232_havechar())
@@ -241,15 +242,15 @@ void TWI_vect(void)
 	    break;
 	case ADCDAT:
 	    if (bcnt == 1)
-	      data = ADCH;
+		data = ADCH;
 	    if (bcnt == 0)
-	      data = ADCL;
+		data = ADCL;
 	    break;
 	case EEDATA:
 	    data = eebyte;
 	    break;
 	}			
-	    
+	
 	TWDR = data;
 	TWCR |= (1<<TWINT) | (1<<TWEA);
 	break;

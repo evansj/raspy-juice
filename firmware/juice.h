@@ -36,9 +36,10 @@
 #define __JUICE_H__
 
 #include <stdio.h>
-#include <avr/pgmspace.h>
+#ifdef __AVR__
 #include <avr/io.h>
-
+#include <avr/pgmspace.h>
+#endif
 
 /* 
  * PD7: AVR-to-RPI-GPIO7 activity signal (and LED) output
@@ -116,20 +117,17 @@ void rs485_putc(unsigned char c);
 int rs485_putchar(char c, FILE *stream);
 int rs485_getchar(FILE *stream);
 
-
-
-
-
 void servo_init(void);
-void servo_set(uint8_t chan, int usec);
+void servo_set(unsigned char chan, int usec);
+
 
 
 /* Addresses of I2C slaves on Juice PCBA */
-#define PCF8523_ADDR_WRITE	(unsigned char) 0b11010000
-#define PCF8523_ADDR_READ	(unsigned char) 0b11010001
 #define AVRSLAVE_ADDR		(unsigned char) 0x48
 #define AVRSLAVE_ADDR_WRITE	(unsigned char) 0x90
 #define AVRSLAVE_ADDR_READ	(unsigned char) 0x91
+#define PCF8523_ADDR_WRITE	(unsigned char) 0b11010000
+#define PCF8523_ADDR_READ	(unsigned char) 0b11010001
 
 /* Addresses of Juice emulated AVR I2C registers */
 #define GSTAT	0x00
@@ -139,14 +137,14 @@ void servo_set(uint8_t chan, int usec);
 #define ADCBUSY	0x40	/* ADC conversion in progress */
 
 /* AVR PC0..PC3 servo pulse width setting registers */
-#define SRV_0	0x01
-#define SRV_1	0x02
-#define SRV_2	0x03
-#define SRV_3	0x04
-#define	SRV_4	0x05
-#define SRV_5	0x06
-#define SRV_6	0x07
-#define SRV_7	0x08
+#define SERVO_0	0x01
+#define SERVO_1	0x02
+#define SERVO_2	0x03
+#define SERVO_3	0x04
+#define	SERVO_4	0x05
+#define SERVO_5	0x06
+#define SERVO_6	0x07
+#define SERVO_7	0x08
 
 /* AVR RS232 registers */
 #define RS232D	0x10

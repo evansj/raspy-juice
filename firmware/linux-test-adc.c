@@ -4,20 +4,7 @@
 #include <linux/i2c-dev.h>
 #include <linux/fcntl.h>
 
-#define GSTAT	0x00
-#define RXA232	0x01	/* RS232 data available */
-#define RXA485	0x04	/* RS485 data available */
-#define EEBUSY	0x20	/* EEPROM write in progress */
-#define ADCBUSY	0x40	/* ADC conversion in progress */
-#define RS232D	0x10
-#define RS485D	0x20
-#define SERVO_0 0x01
-#define SERVO_1 0x02
-#define SERVO_2 0x03
-#define SERVO_3 0x04
-
-#define ADCMUX	0x40
-#define ADCDAT	0x41	/* short int read */
+#include "juice.h"
 
 int file;
 int rj_readstat(void);
@@ -30,119 +17,66 @@ int rj485_send(unsigned char *buf, int len);
 int rj_setservo(int chan, int usec);
 int rj_readadc(unsigned char mux);
 
-
 #define BUFSIZE 64
 char inbuf[BUFSIZE];
 char outbuf[BUFSIZE];
 
 int main(int argc, char *argv[])
 {
+    char devbusname[] = "/dev/i2c-0";
+    int i2caddr = AVRSLAVE_ADDR;
+    
     int i;
     int count = 0;
-    int adapter_nr = 0; /* probably dynamically determined */
-    char devname[20];
-    int addr = 0x48; /* The I2C address */
-    unsigned char reg = 0x00; /* Device register to access */
-    int rval, stat, c, b;
+    int rval, stat, c, b, adc_v;
     char buf[10];
-    int servo0pwm = 1500, servo0spddir = 20;
-    int servo1pwm = 1500, servo1spddir = 20;
-    int servo2pwm = 1500, servo2spddir = 20;
-    int servo3pwm = 1500, servo3spddir = 20;
-    int adc_v;
+    double volts = 0.0;
     
     printf("Hello, world!\n");
-  
-    snprintf(devname, 19, "/dev/i2c-%d", adapter_nr);
-    file = open(devname, O_RDWR);
+    
+    file = open(devbusname, O_RDWR);
     if (file < 0) {
-      /* ERROR HANDLING; you can check errno to see what went wrong */
-      printf("open %s: error = %d\n", devname, file);
-      exit(1);
+	printf("open %s: error = %d\n", devbusname, file);
+	exit(1);
     }
     else
-      printf("open %s: succeeded.\n", devname);
-
-    if (ioctl(file, I2C_SLAVE, addr) < 0) {
-      /* ERROR HANDLING; you can check errno to see what went wrong */
-      printf("open i2c slave 0x%02x: error = %s\n", addr, "dunno");
-      exit(1);
+	printf("open %s: succeeded.\n", devbusname);
+    
+    if (ioctl(file, I2C_SLAVE, i2caddr) < 0) {
+	printf("open i2c slave 0x%02x: error = %s\n", i2caddr, "dunno");
+	exit(1);
     }
     else
-      printf("open i2c slave 0x%02x: succeeded.\n", addr);
-
-
-#define SERVO_TEST 1    
-#ifdef SERVO_TEST
-    rj_setservo(SERVO_0, servo0pwm);
-    usleep(500000);
-    rj_setservo(SERVO_1, servo1pwm);
-    usleep(500000);
-    rj_setservo(SERVO_2, servo2pwm);
-    usleep(500000);
-    rj_setservo(SERVO_3, servo3pwm);
-    usleep(500000);
-#endif
-
-
+	printf("open i2c slave 0x%02x: succeeded.\n", i2caddr);
+    
+    
     while (1) {
+	count++;
+	
+#if 1
+	stat = rj_readstat();
+	if (stat >= 0) {
+	  for (b = 7; b >= 0; b--)
+	    printf("%c", (stat & (1 << b)) ? '1' : '0');
+	  printf(": ");
+	  fflush(stdout);
+	  if (stat & ADCBUSY)
+	    printf("adcbusy:");
+	  if (stat & EEBUSY)
+	    printf("eebusy:");
+	  if (stat & RXA485)
+	    printf("rs485:");
+	  if (stat & RXA232)
+	    printf("rs232:");
+	  printf("\n");
+	}
+#endif
+	
+	adc_v = rj_readadc(0x47) & 0x3ff;
+	volts = 38.14922 * adc_v / 0x3ff;
+	printf("ADC = 0x%04x, % 4d, %f\n", adc_v, adc_v, volts);
 
 	usleep(100000);
-	count++;
-
-	if ((count % 5) == 0) {
-	  //	    printf("\33[2K\r%06d:", count);
-	    stat = rj_readstat();
-	    for (b = 7; b >= 0; b--)
-		printf("%c", (stat & (1 << b)) ? '1' : '0');
-	    printf(": ");
-	    fflush(stdout);
-	    
-	    if (stat >= 0) {
-		if (stat & ADCBUSY)
-		    printf("adcbusy:");
-		
-		if (stat & EEBUSY)
-		    printf("eebusy:");
-		
-		if (stat & RXA485) {
-		    rval = rj485_read();
-		    printf("\nrs485: %s:\n", inbuf);
-		    for (i = 0; inbuf[i] != 0; i++)
-			printf("0x%02x ", inbuf[i]);
-		    printf("\n");
-		    
-		}
-		
-		if (stat & RXA232) {
-		    rval = rj232_read();
-		    for (i = 0; inbuf[i] != 0; i++)
-			inbuf[i] = inbuf[i] & 0x7f;
-		    printf("\nrs232: %s: \n", inbuf);
-		    for (i = 0; inbuf[i] != 0; i++)
-			printf("0x%02x ", inbuf[i]);
-		    printf("\n");
-		}
-		printf("");
-		
-	    }
-	}
-
-	adc_v = rj_readadc(0x47);
-	printf("\nADC = 0x%04x", adc_v & 0x3ff);
-
-
-	if ((count % 10) == 0) {
-	    sprintf(outbuf, "Hello 232!!! count = %d\n\r", count);
-	    rj232_send(outbuf, strlen(outbuf));
-	    sprintf(outbuf, "Hello 485!!! count = %d\n\r", count); 
-	    rj485_send(outbuf, strlen(outbuf));
-
-
-	}
-	
-
-
     }
     
 }
@@ -226,14 +160,30 @@ int rj_readstat(void)
 
 int rj_readadc(unsigned char mux)
 {
-    int i, rval;
+    int rval, stat, retry;
+    
+    retry = 0;
+    stat = rj_readstat();
+    while ((stat & ADCBUSY) && (retry < 1000)) {
+	usleep(10000);
+	retry++;
+	stat = rj_readstat();
+    }
+    printf("rety before = %d  ", retry);
+    
     rval = rj_writebyte(ADCMUX, mux, __func__);
-    usleep(10000);
+
+    retry = 0;
+    stat = rj_readstat();
+    while ((stat & ADCBUSY) && (retry < 1000)) {
+	usleep(10000);
+	retry++;
+	stat = rj_readstat();
+    }
+    printf("rety after = %d  ", retry);
     rval = rj_readword(ADCDAT, __func__);
     return rval;
 } 
-
-
 
 int rj232_read(void)
 {
