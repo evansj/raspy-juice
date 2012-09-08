@@ -41,8 +41,8 @@
 FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
 				      _FDEV_SETUP_RW);
 
-uint8_t led_state = 0;
-long led_counter = 0, led_timing[4] = { 100000L, 20000L, 10000L, 20000L }; 
+uint8_t led_state = 1;
+long led_counter = 0, led_timing[4] = { 500000L, 40000L, 20000L, 40000L }; 
 void led_heartbeat(void)
 {
     if (led_counter++  > led_timing[led_state]) {
@@ -55,14 +55,6 @@ void led_heartbeat(void)
     }
 }
 
-volatile int adcval;
-
-ISR(ADC_vect)
-{
-    adcval = ADCW;
-    ADCSRA &= (~_BV(ADIE));		/* disable ADC interrupt */
-}
-
 void TWI_vect(void);
 
 int main(void)
@@ -72,75 +64,106 @@ int main(void)
     rs232_swuart_init();
     rs485_init(115200);
     servo_init();
-    /* Enable ADC, and set clock prescaler */
-    ADCSRA = 0b10000111;
+    /* Enable ADC, and set clock prescaler to div 128 */
+    ADCSRA = (1<<ADEN) | (1<<ADIE) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
     
-    //#define TWI_POLL_MODE 1
-# ifdef TWI_POLL_MODE
     TWAR = (AVRSLAVE_ADDR << 1);
-    TWCR = (1<<TWEA) | (1<<TWEN);
-# else
-    TWAR = (AVRSLAVE_ADDR << 1);
-    TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
-# endif
+    TWCR = (1 << TWINT) | (1 << TWEA) | (1 << TWEN) | (1 << TWIE);
     
     sei();
+
+    /* Test printouts */
     stdout = stdin = &rs232_stream;
-    
     printf_P(PSTR("\nTest Application of Juice Firmware\n"));
     printf_P(PSTR("Second line\n\n"));
     
     while (1) {
 	led_heartbeat();
-	
-	//#define TEST_RS232_RS485_ECHO 1
-#ifdef TEST_RS232_RS485_ECHO
-	/* Testing RS232/RS485 cross-echo */
-	c = 0;
-	if (rs232_havechar())
-	    c = rs232_getc();
-	if ((c == 0) && rs485_havechar())
-	    c = rs485_getc();
-	if (c != 0) {
-	    rs232_putchar(c, NULL);
-	    rs485_putchar(c, NULL);
-	}
-#endif
-	
-#ifdef TWI_POLL_MODE
-	if (TWCR & 0x80) {
-	    TWI_vect();
-	}
-#endif
-	
     }
     
 }
+
 #ifdef TWI_POLL_MODE
 # define TWI_debug(fmt, ...)	printf_P(fmt, ##__VA_ARGS__)
 #else
 # define TWI_debug(fmt, ...)
 #endif
 
-volatile uint8_t bcnt;
+/* TWI slave transmitter mode is extremely timing sensitive */
+/* this is a workaround for the situation, what crappy programming */
+volatile unsigned char gstat = 0;
+volatile unsigned char adch, adcl;
+volatile unsigned char rs485d, rs232d; 
 
-#ifdef TWI_POLL_MODE
-void TWI_vect(void)
-#else
-    ISR(TWI_vect)
-#endif
+volatile int adcval;
+ISR(ADC_vect)
 {
-    uint8_t data, twsr;
-    uint8_t ack = (1<<TWEA);
-    static uint8_t reg, eebyte;
+    adch = ADCH;
+    adcl = ADCL;
+    gstat = 0;
+    //    ADCSRA &= ~(1 << ADIE);	/* disable ADC interrupt */
+}
+
+ISR(TWI_vect)
+{
+    uint8_t data;
+    uint8_t ack = (1 << TWEA);
+    static uint8_t bcnt, reg, eebyte;
     static int servo_pwm, eeaddr;
-    static uint16_t extdata;
     
-    bcnt++;
-    twsr = TWSR & 0xF8;
     TWI_debug(PSTR("twsr = 0x%02x\n"), twsr);
     
-    switch (twsr) {
+    switch (TWSR & 0xF8) {
+	/* Own SLA+R has been received; ACK has been returned */
+    case 0xA8:
+	TWI_debug(PSTR("\nSLA+R AVR slave addressed for read, so send data\n"));
+	bcnt = 0;
+	/* No break: fall-through to case 0xB8 for sending data */
+	/* Data byte in TWDR has been transmitted; ACK has been recv */
+    case 0xB8:
+	TWI_debug(PSTR("prev SLA+R recvd, ACK returned, so send more data\n"));
+	switch(reg) {
+	case GSTAT:
+#if 0
+	    TWDR =
+		(rs232_havechar() ? RXA232 : 0) |
+		(rs485_havechar() ? RXA485 : 0) |
+		(eeprom_is_ready() ? 0 : EEBUSY) |
+		(ADCSRA & (1 << ADSC) ? ADCBUSY : 0);
+#else
+	    TWDR = gstat;
+#endif
+	    TWCR |= (1<<TWINT) | (1<<TWEA);
+	    break;
+	case ADCDAT:
+	    if (bcnt == 0) {
+		TWDR = ADCL;
+		bcnt++;
+	    }
+	    else
+		TWDR = ADCH;
+	    TWCR |= (1<<TWINT) | (1<<TWEA);
+	    break;
+	case RS232D:
+	    if (rs232_havechar())
+		TWDR = rs232_getc();
+	    TWCR |= (1<<TWINT) | (1<<TWEA);
+	    break;
+	case RS485D:
+	    if (rs485_havechar())
+		TWDR = rs485_getc();
+	    TWCR |= (1<<TWINT) | (1<<TWEA);
+	    break;
+	case EEDATA:
+	    TWDR = eebyte;
+	    TWCR |= (1<<TWINT) | (1<<TWEA);
+	    bcnt++;
+	    break;
+	}			
+	//	TWDR = data;
+	//	TWCR |= (1<<TWINT) | (1<<TWEA);
+	break;
+	
     case 0x60:
 	bcnt = 0;
 	TWCR |= (1<<TWINT) | (1<<TWEA);
@@ -150,7 +173,7 @@ void TWI_vect(void)
     case 0x80:
 	TWI_debug(PSTR("prev SLA+W, data recvd, ACK returned -> recv data and ACK\n"));
 	data = TWDR;
-	switch (bcnt) {
+	switch (++bcnt) {
 	case 0:
 	    break;
 
@@ -171,10 +194,11 @@ void TWI_vect(void)
 		rs485_putc(data);
 	    }
 	    else if (reg == ADCMUX) {
-	      /* Set mux here, force ADLAR bit to zero, and start */
-	      /* let user i2c setting to select the volt ref src  */
-	      ADMUX = (data & 0b11001111);
-	      ADCSRA = 0b11000111;
+		/* Set mux here, force ADLAR bit to zero, and start */
+		/* let user i2c setting to select the volt ref src  */
+		ADMUX = (data & 0b11001111);
+		ADCSRA |= (1 << ADSC);
+		gstat |= 0b01000000;
 	    }
 	    else if (reg == EEADDR) {
 		eeaddr = data;
@@ -196,8 +220,6 @@ void TWI_vect(void)
 	    TWI_debug(PSTR("extended data = 0x%02x\n"), data);
 	    if (reg >= SERVO_0 && reg <= SERVO_3) {
 		servo_pwm = (data << 8) | servo_pwm;
-		if (servo_pwm <  500) servo_pwm = 500;
-		if (servo_pwm > 2500) servo_pwm = 2500;
 		TWI_debug(PSTR("Setting servo %d to %dusec\n"), reg-1, servo_pwm);
 		servo_set(reg-1, servo_pwm);
 	    }
@@ -214,45 +236,6 @@ void TWI_vect(void)
 	    break;
 	}
 	TWCR |= (1<<TWINT) | ack;
-	break;
-	
-    case 0xA8:
-	TWI_debug(PSTR("\nSLA+R AVR slave addressed for read, so send data\n"));
-	bcnt = 0;
-	/* No break: fall-through to case 0xB8 for sending data */
-    case 0xB8:
-	TWI_debug(PSTR("prev SLA+R recvd, ACK returned, so send more data\n"));
-	    
-	data = 0;
-	switch(reg) {
-	case GSTAT:
-	    data =
-		(rs232_havechar() ? RXA232 : 0) |
-		(rs485_havechar() ? RXA485 : 0) |
-		(eeprom_is_ready() ? 0 : EEBUSY) |
-		(ADCSRA & _BV(ADSC) ? ADCBUSY : 0);
-	    break;
-	case RS232D:
-	    if (rs232_havechar())
-		data = rs232_getc();
-	    break;
-	case RS485D:
-	    if (rs485_havechar())
-		data = rs485_getc();
-	    break;
-	case ADCDAT:
-	    if (bcnt == 1)
-		data = ADCH;
-	    if (bcnt == 0)
-		data = ADCL;
-	    break;
-	case EEDATA:
-	    data = eebyte;
-	    break;
-	}			
-	
-	TWDR = data;
-	TWCR |= (1<<TWINT) | (1<<TWEA);
 	break;
 	
 	/* STOP or repeated START */

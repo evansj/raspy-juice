@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
     
     while (1) {
 	count++;
+	printf("count = %06d: ", count);
 	
 #if 1
 	stat = rj_readstat();
@@ -72,9 +73,11 @@ int main(int argc, char *argv[])
 	}
 #endif
 	
+#if 1
 	adc_v = rj_readadc(0x47) & 0x3ff;
 	volts = 38.14922 * adc_v / 0x3ff;
 	printf("ADC = 0x%04x, % 4d, %f\n", adc_v, adc_v, volts);
+#endif
 
 	usleep(100000);
     }
