@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <linux/i2c-dev.h.new>
+#include <linux/i2c-dev.h>
 #include <linux/fcntl.h>
 
 #define GSTAT	0x00
