@@ -35,15 +35,10 @@
 #include "juice.h"
 #include <avr/interrupt.h>
 
-/* With MCU clock of 7372800Hz prescaled by 256, period = 34.7us */
-#define BPS9600_TIMER_PRESCALE	0b011   // clk/32
+/* With MCU clock of 14.7456MHz prescaled by 256, period = 34.7us */
+#define BPS9600_TIMER_PRESCALE	0b100   // clk/64
 #define BPS9600_FULLPERIOD	24	// 104us
-#define BPS9600_ONEHALFPERIOD	30	// should be 36, but try 
-
-/* Anyways, BPS57K6 doesn't work: possibly upto 38400 only - still to test */
-#define BPS38K4_TIMER_PRESCALE	0b010	// clk/8
-#define BPS38K4_FULLPERIOD	24	// 17.4us
-#define BPS38K4_ONEHALFPERIOD	30
+#define BPS9600_ONEHALFPERIOD	36
 
 #define BPS_PRESCALER		BPS9600_TIMER_PRESCALE
 #define BPS_FULLPERIOD		BPS9600_FULLPERIOD
@@ -103,7 +98,7 @@ void rs232_swuart_off(void)
 void rs232_putc(char c)
 {
     unsigned char tmphead, tmptail;
-    tmphead = (txhead +1) & RS232_TX_BUFMASK;
+    tmphead = (txhead + 1) & RS232_TX_BUFMASK;
     while (tmphead == txtail)
 	;
     rs232_txbuf[tmphead] = c;
