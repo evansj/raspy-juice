@@ -5,7 +5,7 @@
  *
  *
  *
- * Copyright (c) 2012, Adnan Jalaludin
+ * Copyright (c) 2012, Adnan Jalaludin <adnan singnet.com.sg>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,9 +36,10 @@
 #define __JUICE_H__
 
 #include <stdio.h>
-#include <avr/pgmspace.h>
+#ifdef __AVR__
 #include <avr/io.h>
-
+#include <avr/pgmspace.h>
+#endif
 
 /* 
  * PD7: AVR-to-RPI-GPIO7 activity signal (and LED) output
@@ -50,7 +51,7 @@
  * PD1: RS485 TXD output
  * PD0: RS485 RXD input
  *
- * PC6: User for RESET#
+ * PC6: Used for RESET#
  * PC5: RPISCL slave OC, set as input
  * PC4: RPISDA slave OC, set as input
  * PC3: Servo 3 output
@@ -116,20 +117,14 @@ void rs485_putc(unsigned char c);
 int rs485_putchar(char c, FILE *stream);
 int rs485_getchar(FILE *stream);
 
-
-
-
-
 void servo_init(void);
-void servo_set(uint8_t chan, int usec);
+void servo_set(unsigned char chan, int usec);
+
 
 
 /* Addresses of I2C slaves on Juice PCBA */
-#define PCF8523_ADDR_WRITE	(unsigned char) 0b11010000
-#define PCF8523_ADDR_READ	(unsigned char) 0b11010001
-#define AVRSLAVE_ADDR		(unsigned char) 0x48
-#define AVRSLAVE_ADDR_WRITE	(unsigned char) 0x90
-#define AVRSLAVE_ADDR_READ	(unsigned char) 0x91
+#define AVRSLAVE_ADDR	(unsigned char) 0x48
+#define PCF8523_ADDR	(unsigned char) 0x68
 
 /* Addresses of Juice emulated AVR I2C registers */
 #define GSTAT	0x00
@@ -139,14 +134,14 @@ void servo_set(uint8_t chan, int usec);
 #define ADCBUSY	0x40	/* ADC conversion in progress */
 
 /* AVR PC0..PC3 servo pulse width setting registers */
-#define SRV_0	0x01
-#define SRV_1	0x02
-#define SRV_2	0x03
-#define SRV_3	0x04
-#define	SRV_4	0x05
-#define SRV_5	0x06
-#define SRV_6	0x07
-#define SRV_7	0x08
+#define SERVO_0	0x01
+#define SERVO_1	0x02
+#define SERVO_2	0x03
+#define SERVO_3	0x04
+#define	SERVO_4	0x05
+#define SERVO_5	0x06
+#define SERVO_6	0x07
+#define SERVO_7	0x08
 
 /* AVR RS232 registers */
 #define RS232D	0x10
@@ -165,6 +160,53 @@ void servo_set(uint8_t chan, int usec);
 /* AVR Reboot register and constant to write to reboot*/
 #define REBOOT	0xb0
 #define BOOTVAL	0x0d
+
+/****************************************************************************
+ * TWI State codes, borrowed from Atmel Corporation
+ * File              : TWI_Slave.h
+ * AppNote           : AVR311 - TWI Slave Implementation
+ * Description       : Header file for TWI_slave.c
+ ****************************************************************************/
+// General TWI Master staus codes                      
+#define TWI_START                  0x08  // START has been transmitted  
+#define TWI_REP_START              0x10  // Repeated START has been transmitted
+#define TWI_ARB_LOST               0x38  // Arbitration lost
+
+// TWI Master Transmitter staus codes                      
+#define TWI_MTX_ADR_ACK            0x18  // SLA+W has been tramsmitted and ACK received
+#define TWI_MTX_ADR_NACK           0x20  // SLA+W has been tramsmitted and NACK received 
+#define TWI_MTX_DATA_ACK           0x28  // Data byte has been tramsmitted and ACK received
+#define TWI_MTX_DATA_NACK          0x30  // Data byte has been tramsmitted and NACK received 
+
+// TWI Master Receiver staus codes  
+#define TWI_MRX_ADR_ACK            0x40  // SLA+R has been tramsmitted and ACK received
+#define TWI_MRX_ADR_NACK           0x48  // SLA+R has been tramsmitted and NACK received
+#define TWI_MRX_DATA_ACK           0x50  // Data byte has been received and ACK tramsmitted
+#define TWI_MRX_DATA_NACK          0x58  // Data byte has been received and NACK tramsmitted
+
+// TWI Slave Transmitter staus codes
+#define TWI_STX_ADR_ACK            0xA8  // Own SLA+R has been received; ACK has been returned
+#define TWI_STX_ADR_ACK_M_ARB_LOST 0xB0  // Arb lost in SLA+R/W as Master; own SLA+R has been rcvd; ACK has been returned
+#define TWI_STX_DATA_ACK           0xB8  // Data byte in TWDR has been transmitted; ACK has been rcvd
+#define TWI_STX_DATA_NACK          0xC0  // Data byte in TWDR has been transmitted; NOT ACK has been received
+#define TWI_STX_DATA_ACK_LAST_BYTE 0xC8  // Last data byte in TWDR has been xmitted (TWEA = 0); ACK has been rcvd
+
+// TWI Slave Receiver staus codes
+#define TWI_SRX_ADR_ACK            0x60  // Own SLA+W has been received ACK has been returned
+#define TWI_SRX_ADR_ACK_M_ARB_LOST 0x68  // Arb lost in SLA+R/W as Master; own SLA+W has been rcvd; ACK has been returned
+#define TWI_SRX_GEN_ACK            0x70  // General call address has been received; ACK has been returned
+#define TWI_SRX_GEN_ACK_M_ARB_LOST 0x78  // Arb lost in SLA+R/W as Master; Gen call addr has been rcvd; ACK has been returned
+#define TWI_SRX_ADR_DATA_ACK       0x80  // Prev addr'd with own SLA+W; data has been rcvd; ACK has been returned
+#define TWI_SRX_ADR_DATA_NACK      0x88  // Prev addr'd with own SLA+W; data has been rcvd; NOT ACK has been returned
+#define TWI_SRX_GEN_DATA_ACK       0x90  // Prev addr'd with general call; data has been rcvd; ACK has been returned
+#define TWI_SRX_GEN_DATA_NACK      0x98  // Prev addr'd with general call; data has been rcvd; NOT ACK has been returned
+#define TWI_SRX_STOP_RESTART       0xA0  // A STOP cond or repeated START cond has been rcvd while still addressed as Slave
+
+// TWI Miscellaneous status codes
+#define TWI_NO_STATE               0xF8  // No relevant state information available; TWINT = 0
+#define TWI_BUS_ERROR              0x00  // Bus error due to an illegal START or STOP condition
+
+
 
 #endif
 
