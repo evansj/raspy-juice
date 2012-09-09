@@ -51,7 +51,7 @@
  * PD1: RS485 TXD output
  * PD0: RS485 RXD input
  *
- * PC6: User for RESET#
+ * PC6: Used for RESET#
  * PC5: RPISCL slave OC, set as input
  * PC4: RPISDA slave OC, set as input
  * PC3: Servo 3 output
@@ -123,11 +123,8 @@ void servo_set(unsigned char chan, int usec);
 
 
 /* Addresses of I2C slaves on Juice PCBA */
-#define AVRSLAVE_ADDR		(unsigned char) 0x48
-#define AVRSLAVE_ADDR_WRITE	(unsigned char) 0x90
-#define AVRSLAVE_ADDR_READ	(unsigned char) 0x91
-#define PCF8523_ADDR_WRITE	(unsigned char) 0b11010000
-#define PCF8523_ADDR_READ	(unsigned char) 0b11010001
+#define AVRSLAVE_ADDR	(unsigned char) 0x48
+#define PCF8523_ADDR	(unsigned char) 0x68
 
 /* Addresses of Juice emulated AVR I2C registers */
 #define GSTAT	0x00
@@ -165,8 +162,11 @@ void servo_set(unsigned char chan, int usec);
 #define BOOTVAL	0x0d
 
 /****************************************************************************
-  TWI State codes, borrowred from App Note AVR311
-****************************************************************************/
+ * TWI State codes, borrowed from Atmel Corporation
+ * File              : TWI_Slave.h
+ * AppNote           : AVR311 - TWI Slave Implementation
+ * Description       : Header file for TWI_slave.c
+ ****************************************************************************/
 // General TWI Master staus codes                      
 #define TWI_START                  0x08  // START has been transmitted  
 #define TWI_REP_START              0x10  // Repeated START has been transmitted
@@ -205,5 +205,8 @@ void servo_set(unsigned char chan, int usec);
 // TWI Miscellaneous status codes
 #define TWI_NO_STATE               0xF8  // No relevant state information available; TWINT = 0
 #define TWI_BUS_ERROR              0x00  // Bus error due to an illegal START or STOP condition
+
+
+
 #endif
 

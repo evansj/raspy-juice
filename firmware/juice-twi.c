@@ -41,10 +41,12 @@
 FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
 				      _FDEV_SETUP_RW);
 
-uint8_t led_state = 1;
+unsigned char led_state = 1;
 long led_counter = 0, led_timing[4] = { 500000L, 40000L, 20000L, 40000L }; 
+
 void led_heartbeat(void)
 {
+
     if (led_counter++  > led_timing[led_state]) {
 	led_counter = 0;
 	led_state = ++led_state % 4;
@@ -54,8 +56,6 @@ void led_heartbeat(void)
 	    LED_OFF();
     }
 }
-
-void TWI_vect(void);
 
 int main(void)
 {
@@ -68,7 +68,7 @@ int main(void)
     ADCSRA = (1<<ADEN) | (1<<ADIE) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
     
     TWAR = (AVRSLAVE_ADDR << 1);
-    TWCR = (1 << TWINT) | (1 << TWEA) | (1 << TWEN) | (1 << TWIE);
+    TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
     
     sei();
 
@@ -89,89 +89,66 @@ int main(void)
 # define TWI_debug(fmt, ...)
 #endif
 
-/* TWI slave transmitter mode is extremely timing sensitive */
-/* this is a workaround for the situation, what crappy programming */
-volatile unsigned char gstat = 0;
-volatile unsigned char adch, adcl;
-volatile unsigned char rs485d, rs232d; 
+/****************************************************************************
+ * The TWI slave transmitter mode is extremely timing sensitive.
+ * This TWI ISR follows the Atmel AVR311 App Note closely, where timing
+ * priority is placed on TWI slave transmission of data
+ * File              : TWI_Slave.c
+ * AppNote           : AVR311 - TWI Slave Implementation
+ * Description       : Interrupt-driver sample driver to AVRs TWI module. 
+ ****************************************************************************/
 
-volatile int adcval;
+volatile unsigned char gstat = 0;
+
 ISR(ADC_vect)
 {
-    adch = ADCH;
-    adcl = ADCL;
-    gstat = 0;
-    //    ADCSRA &= ~(1 << ADIE);	/* disable ADC interrupt */
+    gstat &= ~ADCBUSY;
 }
 
 ISR(TWI_vect)
 {
-    uint8_t data;
-    uint8_t ack = (1 << TWEA);
-    static uint8_t bcnt, reg, eebyte;
+    static unsigned char bcnt, reg, prep_data;
     static int servo_pwm, eeaddr;
+    unsigned char data;
     
-    TWI_debug(PSTR("twsr = 0x%02x\n"), twsr);
-    
-    switch (TWSR & 0xF8) {
-	/* Own SLA+R has been received; ACK has been returned */
-    case 0xA8:
-	TWI_debug(PSTR("\nSLA+R AVR slave addressed for read, so send data\n"));
-	bcnt = 0;
-	/* No break: fall-through to case 0xB8 for sending data */
-	/* Data byte in TWDR has been transmitted; ACK has been recv */
-    case 0xB8:
-	TWI_debug(PSTR("prev SLA+R recvd, ACK returned, so send more data\n"));
-	switch(reg) {
-	case GSTAT:
-#if 0
-	    TWDR =
-		(rs232_havechar() ? RXA232 : 0) |
-		(rs485_havechar() ? RXA485 : 0) |
-		(eeprom_is_ready() ? 0 : EEBUSY) |
-		(ADCSRA & (1 << ADSC) ? ADCBUSY : 0);
-#else
-	    TWDR = gstat;
-#endif
-	    TWCR |= (1<<TWINT) | (1<<TWEA);
-	    break;
-	case ADCDAT:
-	    if (bcnt == 0) {
-		TWDR = ADCL;
-		bcnt++;
-	    }
-	    else
-		TWDR = ADCH;
-	    TWCR |= (1<<TWINT) | (1<<TWEA);
-	    break;
-	case RS232D:
+    switch (TWSR) {
+    case TWI_STX_ADR_ACK:	// Own SLA+R has been received; ACK has been returned
+    case TWI_STX_DATA_ACK:	// Data byte in TWDR has been transmitted; ACK has been received
+	TWDR = prep_data;
+	TWCR = (1<<TWEN)| (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);                      
+
+	if (reg == ADCDAT) {
+	    prep_data = ADCH;
+	}
+	else if (reg == RS232D) {
 	    if (rs232_havechar())
-		TWDR = rs232_getc();
-	    TWCR |= (1<<TWINT) | (1<<TWEA);
-	    break;
-	case RS485D:
+		prep_data = rs232_getc();
+	}
+	else if (reg == RS485D) {
 	    if (rs485_havechar())
-		TWDR = rs485_getc();
-	    TWCR |= (1<<TWINT) | (1<<TWEA);
-	    break;
-	case EEDATA:
-	    TWDR = eebyte;
-	    TWCR |= (1<<TWINT) | (1<<TWEA);
-	    bcnt++;
-	    break;
-	}			
-	//	TWDR = data;
-	//	TWCR |= (1<<TWINT) | (1<<TWEA);
+		prep_data = rs485_getc();
+	}
+	else if (reg == EEDATA) {
+	    prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
+	}
 	break;
-	
-    case 0x60:
+
+    case TWI_STX_DATA_NACK:
+	// Data byte in TWDR has been transmitted; NACK has been received. 
+	// Do nothing
+	// Reset the TWI Interupt to wait for a new event.
+	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO)| (0<<TWWC);
+	break;     
+
+    case TWI_SRX_GEN_ACK:            // General call address has been received; ACK has been returned
+    case TWI_SRX_ADR_ACK:            // Own SLA+W has been received ACK has been returned
 	bcnt = 0;
-	TWCR |= (1<<TWINT) | (1<<TWEA);
-	TWI_debug(PSTR("\nSLA+W AVR slave addressed -> recv data and ACK\n"));
+	// Reset the TWI Interupt to wait for a new event.
+	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);  
 	break;
-	
-    case 0x80:
-	TWI_debug(PSTR("prev SLA+W, data recvd, ACK returned -> recv data and ACK\n"));
+
+    case TWI_SRX_ADR_DATA_ACK:       // Previously addressed with own SLA+W; data has been received; ACK has been returned
+    case TWI_SRX_GEN_DATA_ACK:       // Previously addressed with general call; data has been received; ACK has been returned
 	data = TWDR;
 	switch (++bcnt) {
 	case 0:
@@ -179,11 +156,32 @@ ISR(TWI_vect)
 
 	case 1:
 	    reg = data;
-	    TWI_debug(PSTR("reg addr = 0x%02x\n"), data);
+	    
+	    /* For readback registers, prepare data here */
+	    if (reg == GSTAT) {
+		prep_data = 
+		    (rs232_havechar() ? RXA232 : 0) |
+		    (rs485_havechar() ? RXA485 : 0) |
+		    (eeprom_is_ready() ? 0 : EEBUSY) |
+		    (ADCSRA & (1 << ADSC) ? ADCBUSY : 0);
+	    }
+	    else if (reg == ADCDAT) {
+		prep_data = ADCL;
+	    }
+	    else if (reg == RS232D) {
+		if (rs232_havechar())
+		    prep_data = rs232_getc();
+	    }
+	    else if (reg == RS485D) {
+		if (rs485_havechar())
+		    prep_data = rs485_getc();
+	    }
+	    else if (reg == EEDATA) {
+		prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
+	    }
 	    break;
 
 	case 2:
-	    TWI_debug(PSTR("data = 0x%02x\n"), data);
 	    if (reg >= 1 && reg <= 4) {
 		servo_pwm = data;
 	    }
@@ -198,62 +196,56 @@ ISR(TWI_vect)
 		/* let user i2c setting to select the volt ref src  */
 		ADMUX = (data & 0b11001111);
 		ADCSRA |= (1 << ADSC);
-		gstat |= 0b01000000;
+		gstat |= ADCBUSY;
 	    }
 	    else if (reg == EEADDR) {
 		eeaddr = data;
 	    }
 	    else if (reg == EEDATA) {
-		eeprom_write_byte((uint8_t *)eeaddr, data);
+		eeprom_write_byte((unsigned char *)eeaddr, data);
 	    }
 	    else if ((reg == REBOOT) && (data == BOOTVAL)) {
 		TWCR |= (1<<TWINT) | (1<<TWEA);
-		TWI_debug(PSTR("Resetting to bootloader\n\n"));
 		wdt_enable(WDTO_30MS);
 		while(1) {}; 
 	    }
-	    else
-		ack = 0;
 	    break;
 
 	default:
-	    TWI_debug(PSTR("extended data = 0x%02x\n"), data);
 	    if (reg >= SERVO_0 && reg <= SERVO_3) {
 		servo_pwm = (data << 8) | servo_pwm;
-		TWI_debug(PSTR("Setting servo %d to %dusec\n"), reg-1, servo_pwm);
-		servo_set(reg-1, servo_pwm);
+		servo_set(reg - 1, servo_pwm);
 	    }
 	    else if (reg == RS232D) {
 		rs232_putc(data);
 	    }
+	    else if (reg == RS485D) {
+		rs485_putc(data);
+	    }
 	    else if (reg == EEADDR) {
 		eeaddr = ((data << 8) & 0x01) | eeaddr;
-		/* do eeprom readback here */
-		eebyte = eeprom_read_byte((uint8_t *)eeaddr);
 	    }
-	    else 
-		ack = 0;
 	    break;
 	}
-	TWCR |= (1<<TWINT) | ack;
+	// Reset the TWI Interupt to wait for a new event.
+	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
 	break;
-	
-	/* STOP or repeated START */
-    case 0xA0:
-	TWCR |= (1<<TWEN) | (1<<TWINT) | (1<<TWEA) | (1<<TWSTO);
-	TWI_debug(PSTR("STOP or repeated START, do what?\n"));
+
+    case TWI_SRX_STOP_RESTART:       // A STOP condition or repeated START condition has been received while still addressed as Slave    
+	// Enter not addressed mode and listen to address match
+	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
+	break;           
+
+    case TWI_SRX_ADR_DATA_NACK:		// Previously addressed with own SLA+W; data has been received; NOT ACK has been returned
+    case TWI_SRX_GEN_DATA_NACK:		// Previously addressed with general call; data has been received; NOT ACK has been returned
+    case TWI_STX_DATA_ACK_LAST_BYTE:	// Last data byte in TWDR has been transmitted (TWEA = “0”); ACK has been received
+    case TWI_BUS_ERROR:			// Bus error due to an illegal START or STOP condition
+	TWCR = (1<<TWSTO) | (1<<TWINT);	// Recover from TWI_BUS_ERROR, this will release the SDA and SCL pins thus enabling other devices to use the bus
 	break;
-	
-	/* data sent, NACK returned */
-    case 0xC0:
-	TWCR |= (1<<TWINT) | (1<<TWEA);
-	TWI_debug(PSTR("data sent, NACK returned, do what?\n"));
-	break;
-	
-	/* illegal state -> reset hardware */
-    case 0xF8:
-	TWCR |= (1<<TWINT) | (1<<TWEA) | (1<<TWSTO);
-	TWI_debug(PSTR("illegal state, resetting hardware\n"));
+
+    default:
+	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
 	break;
     }
+
 }

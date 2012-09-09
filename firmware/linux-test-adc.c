@@ -23,6 +23,7 @@ char outbuf[BUFSIZE];
 
 int main(int argc, char *argv[])
 {
+    char backspaces[200];
     char devbusname[] = "/dev/i2c-0";
     int i2caddr = AVRSLAVE_ADDR;
     
@@ -50,7 +51,12 @@ int main(int argc, char *argv[])
 	printf("open i2c slave 0x%02x: succeeded.\n", i2caddr);
     
     
+    for(i = 0; i < 200; i++)
+	backspaces[i] = '\b';
+    backspaces[199] = 0;
+    
     while (1) {
+	printf("%s", backspaces);
 	count++;
 	printf("count = %06d: ", count);
 	
@@ -69,14 +75,14 @@ int main(int argc, char *argv[])
 	    printf("rs485:");
 	  if (stat & RXA232)
 	    printf("rs232:");
-	  printf("\n");
+	  //	  printf("\n");
 	}
 #endif
 	
 #if 1
 	adc_v = rj_readadc(0x47) & 0x3ff;
 	volts = 38.14922 * adc_v / 0x3ff;
-	printf("ADC = 0x%04x, % 4d, %f\n", adc_v, adc_v, volts);
+	printf("ADC = 0x%04x, % 4d, %f", adc_v, adc_v, volts);
 #endif
 
 	usleep(100000);
