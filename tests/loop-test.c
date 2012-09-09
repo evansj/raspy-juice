@@ -111,8 +111,6 @@ int main(int argc, char *argv[])
 		
 		if (stat & RXA232) {
 		    rval = rj232_read();
-		    for (i = 0; inbuf[i] != 0; i++)
-			inbuf[i] = inbuf[i] & 0x7f;
 		    printf("\nrs232: %s: \n", inbuf);
 		    for (i = 0; inbuf[i] != 0; i++)
 			printf("0x%02x ", inbuf[i]);
