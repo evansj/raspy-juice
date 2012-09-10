@@ -23,13 +23,11 @@ char outbuf[BUFSIZE];
 
 int main(int argc, char *argv[])
 {
-    char backspaces[200];
     char devbusname[] = "/dev/i2c-0";
     int i2caddr = AVRSLAVE_ADDR;
     
-    int i;
     int count = 0;
-    int rval, stat, c, b, adc_v;
+    int i, rval, stat, b, adc_v;
     char buf[10];
     double volts = 0.0;
     
@@ -44,23 +42,16 @@ int main(int argc, char *argv[])
 	printf("open %s: succeeded.\n", devbusname);
     
     if (ioctl(file, I2C_SLAVE, i2caddr) < 0) {
-	printf("open i2c slave 0x%02x: error = %s\n", i2caddr, "dunno");
+	printf("open i2c slave 0x%02x: error = %s\n\n", i2caddr, "dunno");
 	exit(1);
     }
     else
-	printf("open i2c slave 0x%02x: succeeded.\n", i2caddr);
-    
-    
-    for(i = 0; i < 200; i++)
-	backspaces[i] = '\b';
-    backspaces[199] = 0;
+	printf("open i2c slave 0x%02x: succeeded.\n\n", i2caddr);
     
     while (1) {
-	printf("%s", backspaces);
 	count++;
-	printf("count = %06d: ", count);
+	printf("\33[2K\r%06d:", count);
 	
-#if 1
 	stat = rj_readstat();
 	if (stat >= 0) {
 	  for (b = 7; b >= 0; b--)
@@ -75,15 +66,17 @@ int main(int argc, char *argv[])
 	    printf("rs485:");
 	  if (stat & RXA232)
 	    printf("rs232:");
-	  //	  printf("\n");
 	}
-#endif
-	
-#if 1
+
 	adc_v = rj_readadc(0x47) & 0x3ff;
 	volts = 38.14922 * adc_v / 0x3ff;
-	printf("ADC = 0x%04x, % 4d, %f", adc_v, adc_v, volts);
-#endif
+	printf("  ADC = 0x%04x, % 4d, %f ", adc_v, adc_v, volts);
+
+	for(i = 0; i < 2 * volts; i++)
+	    printf("*");
+	
+
+	fflush(stdout);
 
 	usleep(100000);
     }
@@ -169,27 +162,8 @@ int rj_readstat(void)
 
 int rj_readadc(unsigned char mux)
 {
-    int rval, stat, retry;
-    
-    retry = 0;
-    stat = rj_readstat();
-    while ((stat & ADCBUSY) && (retry < 1000)) {
-	usleep(10000);
-	retry++;
-	stat = rj_readstat();
-    }
-    printf("rety before = %d  ", retry);
-    
+    int rval;
     rval = rj_writebyte(ADCMUX, mux, __func__);
-
-    retry = 0;
-    stat = rj_readstat();
-    while ((stat & ADCBUSY) && (retry < 1000)) {
-	usleep(10000);
-	retry++;
-	stat = rj_readstat();
-    }
-    printf("rety after = %d  ", retry);
     rval = rj_readword(ADCDAT, __func__);
     return rval;
 } 
