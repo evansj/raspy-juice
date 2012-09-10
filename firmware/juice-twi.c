@@ -90,7 +90,9 @@ int main(void)
 #endif
 
 /****************************************************************************
- * The TWI slave transmitter mode is extremely timing sensitive.
+ * The AVR TWI module slave transmitter mode is extremely timing sensitive to
+ * tranfer bytes from itself as a slave to the master.
+ * 
  * This TWI ISR follows the Atmel AVR311 App Note closely, where timing
  * priority is placed on TWI slave transmission of data
  * File              : TWI_Slave.c
@@ -113,6 +115,14 @@ ISR(TWI_vect)
 	if (reg == ADCDAT) {
 	    prep_data = ADCH;
 	}
+
+#if 0
+	// TODO: have to re-think how to slave-xmit multiple bytes for
+	// received data with ack/nack. Can't put the below lines because
+	// if master asks for 1 byte only, pre-unload of reception FIFO's
+	// will lose the data. So, for now, the master has to check GSTAT,
+	// followed by single byte read -- a bit inefficient.
+
 	else if (reg == RS232D) {
 	    if (rs232_havechar())
 		prep_data = rs232_getc();
@@ -121,6 +131,7 @@ ISR(TWI_vect)
 	    if (rs485_havechar())
 		prep_data = rs485_getc();
 	}
+#endif
 	else if (reg == EEDATA) {
 	    prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
 	}
