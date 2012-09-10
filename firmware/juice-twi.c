@@ -65,7 +65,7 @@ int main(void)
     rs485_init(115200);
     servo_init();
     /* Enable ADC, and set clock prescaler to div 128 */
-    ADCSRA = (1<<ADEN) | (1<<ADIE) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
+    ADCSRA = (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
     
     TWAR = (AVRSLAVE_ADDR << 1);
     TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
@@ -97,13 +97,6 @@ int main(void)
  * AppNote           : AVR311 - TWI Slave Implementation
  * Description       : Interrupt-driver sample driver to AVRs TWI module. 
  ****************************************************************************/
-
-volatile unsigned char gstat = 0;
-
-ISR(ADC_vect)
-{
-    gstat &= ~ADCBUSY;
-}
 
 ISR(TWI_vect)
 {
@@ -163,7 +156,7 @@ ISR(TWI_vect)
 		    (rs232_havechar() ? RXA232 : 0) |
 		    (rs485_havechar() ? RXA485 : 0) |
 		    (eeprom_is_ready() ? 0 : EEBUSY) |
-		    (ADCSRA & (1 << ADSC) ? ADCBUSY : 0);
+		    (ADCSRA & (1<<ADSC) ? ADCBUSY : 0);
 	    }
 	    else if (reg == ADCDAT) {
 		prep_data = ADCL;
@@ -196,7 +189,6 @@ ISR(TWI_vect)
 		/* let user i2c setting to select the volt ref src  */
 		ADMUX = (data & 0b11001111);
 		ADCSRA |= (1 << ADSC);
-		gstat |= ADCBUSY;
 	    }
 	    else if (reg == EEADDR) {
 		eeaddr = data;
@@ -224,6 +216,7 @@ ISR(TWI_vect)
 	    }
 	    else if (reg == EEADDR) {
 		eeaddr = ((data << 8) & 0x01) | eeaddr;
+		prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
 	    }
 	    break;
 	}
