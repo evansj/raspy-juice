@@ -41,6 +41,9 @@
 FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
 				      _FDEV_SETUP_RW);
 
+
+volatile static unsigned char twi_state = 0;
+
 unsigned char led_state = 1;
 long led_counter = 0, led_timing[4] = { 500000L, 40000L, 20000L, 40000L }; 
 
@@ -59,6 +62,9 @@ void led_heartbeat(void)
 
 int main(void)
 {
+    unsigned char last_twi_state = 0;
+    int reset_twi_count = 0;
+
     JUICE_PCBA_PINS_INIT();
     
     rs232_swuart_init();
@@ -74,11 +80,25 @@ int main(void)
 
     /* Test printouts */
     stdout = stdin = &rs232_stream;
-    printf_P(PSTR("\nTest Application of Juice Firmware\n"));
-    printf_P(PSTR("Second line\n\n"));
+    printf_P(PSTR("\r\nTest Application of Juice Firmware\r\n"));
+    printf_P(PSTR("Second line\r\n\r\n"));
     
     while (1) {
 	led_heartbeat();
+#if 1
+	if (last_twi_state != twi_state) {
+	    last_twi_state = twi_state;
+	    //	    printf("twi_state = %02x\r\n", twi_state);
+	    
+	    if ((twi_state == 0)) {
+		printf("WARNING! Resetting TWI module, count = %d\r\n", reset_twi_count++);
+		TWAR = (AVRSLAVE_ADDR << 1);
+		TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
+	    }
+	}
+#endif
+
+
     }
     
 }
@@ -100,13 +120,16 @@ int main(void)
  * Description       : Interrupt-driver sample driver to AVRs TWI module. 
  ****************************************************************************/
 
+
+
 ISR(TWI_vect)
 {
     static unsigned char bcnt, reg, prep_data;
     static int servo_pwm, eeaddr;
     unsigned char data;
     
-    switch (TWSR) {
+    twi_state = TWSR;
+    switch (twi_state & 0xF8) {
     case TWI_STX_ADR_ACK:	// Own SLA+R has been received; ACK has been returned
     case TWI_STX_DATA_ACK:	// Data byte in TWDR has been transmitted; ACK has been received
 	TWDR = prep_data;
