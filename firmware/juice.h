@@ -1,3 +1,4 @@
+
 /***********************************************************************
  * juice.h
  * Header file definitions for Raspy Juice (Raspberry Pi Exp Board)
@@ -160,6 +161,7 @@ void servo_set(unsigned char chan, int usec);
 /* AVR Reboot register and constant to write to reboot*/
 #define REBOOT	0xb0
 #define BOOTVAL	0x0d
+#define RJ_VERSION	0xb1
 
 /****************************************************************************
  * TWI State codes, borrowed from Atmel Corporation
