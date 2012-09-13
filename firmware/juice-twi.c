@@ -38,9 +38,10 @@
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
 
+char VERSION_STR[] = "$Id$";
+
 FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
 				      _FDEV_SETUP_RW);
-
 
 volatile static unsigned char twi_state = 0;
 
@@ -80,8 +81,8 @@ int main(void)
 
     /* Test printouts */
     stdout = stdin = &rs232_stream;
-    printf_P(PSTR("\r\nTest Application of Juice Firmware\r\n"));
-    printf_P(PSTR("Second line\r\n\r\n"));
+    //    printf_P(PSTR("\r\nTest Application of Juice Firmware\r\n"));
+    //    printf_P(PSTR("Second line\r\n\r\n"));
     
     while (1) {
 	led_heartbeat();
@@ -91,7 +92,7 @@ int main(void)
 	    //	    printf("twi_state = %02x\r\n", twi_state);
 	    
 	    if ((twi_state == 0)) {
-		printf("WARNING! Resetting TWI module, count = %d\r\n", reset_twi_count++);
+		//		printf("WARNING! Resetting TWI module, count = %d\r\n", reset_twi_count++);
 		TWAR = (AVRSLAVE_ADDR << 1);
 		TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
 	    }
@@ -158,6 +159,9 @@ ISR(TWI_vect)
 	else if (reg == EEDATA) {
 	    prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
 	}
+	else if (reg == RJ_VERSION) {
+	    prep_data = VERSION_STR[eeaddr++];
+	}
 	break;
 
     case TWI_STX_DATA_NACK:
@@ -206,6 +210,9 @@ ISR(TWI_vect)
 	    else if (reg == EEDATA) {
 		prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
 	    }
+	    else if (reg == RJ_VERSION) {
+		prep_data = VERSION_STR[eeaddr];
+	    }
 	    break;
 
 	case 2:
@@ -234,6 +241,9 @@ ISR(TWI_vect)
 		TWCR |= (1<<TWINT) | (1<<TWEA);
 		wdt_enable(WDTO_30MS);
 		while(1) {}; 
+	    }
+	    else if (reg == RJ_VERSION) {
+		eeaddr = 0;
 	    }
 	    break;
 
