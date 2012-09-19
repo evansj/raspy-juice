@@ -4,7 +4,7 @@
 #include <linux/i2c-dev.h>
 #include <linux/fcntl.h>
 
-#include "juice.h"
+#include "../firmware/juice.h"
 
 int file;
 int rj_readstat(void);
