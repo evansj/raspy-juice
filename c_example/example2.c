@@ -6,42 +6,14 @@
 #include "juice-dev.h"
 #include "../firmware/juice.h"
 
-#if 0
-#define GSTAT	0x00
-#define RXA232	0x01	/* RS232 data available */
-#define RXA485	0x04	/* RS485 data available */
-#define EEBUSY	0x20	/* EEPROM write in progress */
-#define ADCBUSY	0x40	/* ADC conversion in progress */
-#define RS232D	0x10
-#define RS485D	0x20
-#define SERVO_0 0x01
-#define SERVO_1 0x02
-#define SERVO_2 0x03
-#define SERVO_3 0x04
-int file;
-int rj_readstat(void);
-int rj232_getc(void);
-int rj485_getc(void);
-int rj232_read(void);
-int rj485_read(void);
-int rj232_send(unsigned char *buf, int len);
-int rj485_send(unsigned char *buf, int len);
-int rj_setservo(int chan, int usec);
-int rj_readadc(unsigned char mux);
-#define BUFSIZE 64
-char inbuf[BUFSIZE];
-char outbuf[BUFSIZE];
-#endif
-
 int main(int argc, char *argv[])
 {
     char devbusname[] = "/dev/i2c-0";
     int i2caddr = AVRSLAVE_ADDR;
     char *version;
 
-
     int count = 0;
-    int i, rval, stat, c, b, adc_v;
+    int i, rval, stat, b, adc_v;
     double volts = 0.0;
     
     int servo0pwm = 1500, servo0spddir = 50;
@@ -98,32 +70,6 @@ int main(int argc, char *argv[])
 	    printf("rs232:");
 	}
 
-#if 0
-	if (stat & RXA485) {
-	    rval = rj485_read();
-	    printf("\nrs485: %s:\n", inbuf);
-	    for (i = 0; inbuf[i] != 0; i++)
-		printf("0x%02x ", inbuf[i]);
-	    printf("\n");
-		    
-	}
-
-	if (stat & RXA232) {
-	    rval = rj232_read();
-	    printf("\nrs232: %s: \n", inbuf);
-	    for (i = 0; inbuf[i] != 0; i++)
-		printf("0x%02x ", inbuf[i]);
-	    printf("\n");
-	}
-
-	if ((count % 10) == 0) {
-	    sprintf(outbuf, "Hello 232!!! count = %d\n\r", count);
-	    rj232_send(outbuf, strlen(outbuf));
-	    sprintf(outbuf, "Hello 485!!! count = %d\n\r", count); 
-	    rj485_send(outbuf, strlen(outbuf));
-	}
-#endif
-	
 	adc_v = rj_readadc(0x47) & 0x3ff;
 	volts = (3.3 * (10000 + 470 + 1000) / 1000) * adc_v / 0x3ff;
 	servo0pwm = 600 + (2400 - 600) * adc_v / 0x3ff;
@@ -135,9 +81,6 @@ int main(int argc, char *argv[])
 	    printf("*");
 
 	fflush(stdout);
-
-
-
 
 	if ((servo0pwm > 2500) || (servo0pwm < 500))
 	    servo0spddir = -servo0spddir;

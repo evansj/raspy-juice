@@ -1,27 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <linux/i2c-dev.h>
-#include <linux/fcntl.h>
 
 #include "../firmware/juice.h"
 
+#define I2C_NUM_RETRIES	3
 #define RETRY_TIMEOUT	20000
-
-
-#if 0
-#define GSTAT	0x00
-#define RXA232	0x01	/* RS232 data available */
-#define RXA485	0x04	/* RS485 data available */
-#define EEBUSY	0x20	/* EEPROM write in progress */
-#define ADCBUSY	0x40	/* ADC conversion in progress */
-#define RS232D	0x10
-#define RS485D	0x20
-#define SERVO_0 0x01
-#define SERVO_1 0x02
-#define SERVO_2 0x03
-#define SERVO_3 0x04
-#endif
 
 static int rj_file = 0;
 static int rj_errno;
@@ -50,7 +37,7 @@ int rj_open(const char *devbusname, int i2caddr)
 	rj_errno = rj_file;
 	return -1;
     }
-    if (rval = ioctl(rj_file, I2C_SLAVE, i2caddr) < 0) {
+    if ((rval = ioctl(rj_file, I2C_SLAVE, i2caddr)) < 0) {
 	rj_errno = rval;
 	return -2;
     }
@@ -90,6 +77,11 @@ int rj_readadc(unsigned char mux)
     return rval;
 } 
 
+int rj232_getc(void)
+{
+    return rj_readbyte(RS232D);
+}
+
 int rj232_read(void)
 {
     int i = 0;
@@ -98,6 +90,11 @@ int rj232_read(void)
     }
     rs232_inbuf[i] = 0;
     return i;
+}
+
+int rj485_getc(void)
+{
+    return rj_readbyte(RS485D);
 }
 
 int rj485_read(void)
@@ -110,21 +107,12 @@ int rj485_read(void)
     return i;
 }
 
-int rj232_getc(void)
-{
-    return rj_readbyte(RS232D);
-}
-
-int rj485_getc(void)
-{
-    return rj_readbyte(RS485D);
-}
-
 int rj232_send(unsigned char *buf, int len)
 {
     int i, rval;
     for (i = 0; i < len; i++)
 	rval = rj_writebyte(RS232D, *buf++);
+    return rval;
 } 
 
 int rj485_send(unsigned char *buf, int len)
@@ -132,6 +120,7 @@ int rj485_send(unsigned char *buf, int len)
     int i, rval;
     for (i = 0; i < len; i++)
 	rval = rj_writebyte(RS485D, *buf++);
+    return rval;
 }
 
 
