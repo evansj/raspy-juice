@@ -37,8 +37,9 @@
 #include <avr/wdt.h>
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
+#include <avr/pgmspace.h>
 
-char VERSION_STR[] = "$Id$";
+char const VERSION_STR[] PROGMEM = "$Id$";
 
 FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
 				      _FDEV_SETUP_RW);
@@ -61,10 +62,17 @@ void led_heartbeat(void)
     }
 }
 
+
+#ifdef TWI_POLL_MODE
+# define TWI_debug(fmt, ...)	printf_P(fmt, ##__VA_ARGS__)
+#else
+# define TWI_debug(fmt, ...)
+#endif
+
 int main(void)
 {
-    unsigned char last_twi_state = 0;
-    int reset_twi_count = 0;
+    unsigned char twi_last_state = 0;
+    int twi_reset_count = 0;
 
     JUICE_PCBA_PINS_INIT();
     
@@ -81,34 +89,27 @@ int main(void)
 
     /* Test printouts */
     stdout = stdin = &rs232_stream;
-    //    printf_P(PSTR("\r\nTest Application of Juice Firmware\r\n"));
-    //    printf_P(PSTR("Second line\r\n\r\n"));
+    TWI_debug("\r\nTest Application of Juice Firmware\r\n");
+    TWI_debug("Second line\r\n\r\n");
     
     while (1) {
 	led_heartbeat();
-#if 1
-	if (last_twi_state != twi_state) {
-	    last_twi_state = twi_state;
-	    //	    printf("twi_state = %02x\r\n", twi_state);
-	    
+
+	/* Basic watchdog for AVR TWI module failure */
+	if (twi_last_state != twi_state) {
+	    twi_last_state = twi_state;
+	    TWI_debug("twi_state = %02x\r\n", twi_state);
 	    if ((twi_state == 0)) {
-		//		printf("WARNING! Resetting TWI module, count = %d\r\n", reset_twi_count++);
+		twi_reset_count++;
+		TWI_debug("WARNING! Resetting TWI module, count = %d\r\n",
+			  twi_reset_count);
 		TWAR = (AVRSLAVE_ADDR << 1);
 		TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
 	    }
 	}
-#endif
-
-
     }
     
 }
-
-#ifdef TWI_POLL_MODE
-# define TWI_debug(fmt, ...)	printf_P(fmt, ##__VA_ARGS__)
-#else
-# define TWI_debug(fmt, ...)
-#endif
 
 /****************************************************************************
  * The AVR TWI module slave transmitter mode is extremely timing sensitive to
@@ -120,19 +121,17 @@ int main(void)
  * AppNote           : AVR311 - TWI Slave Implementation
  * Description       : Interrupt-driver sample driver to AVRs TWI module. 
  ****************************************************************************/
-
-
-
 ISR(TWI_vect)
 {
     static unsigned char bcnt, reg, prep_data;
     static int servo_pwm, eeaddr;
+    static const char *pgm_ptr;
     unsigned char data;
     
     twi_state = TWSR;
     switch (twi_state & 0xF8) {
-    case TWI_STX_ADR_ACK:	// Own SLA+R has been received; ACK has been returned
-    case TWI_STX_DATA_ACK:	// Data byte in TWDR has been transmitted; ACK has been received
+    case TWI_STX_ADR_ACK:
+    case TWI_STX_DATA_ACK:
 	TWDR = prep_data;
 	TWCR = (1<<TWEN)| (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);                      
 
@@ -160,7 +159,7 @@ ISR(TWI_vect)
 	    prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
 	}
 	else if (reg == RJ_VERSION) {
-	    prep_data = VERSION_STR[eeaddr++];
+	    prep_data = pgm_read_byte(pgm_ptr++);
 	}
 	break;
 
@@ -171,15 +170,15 @@ ISR(TWI_vect)
 	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO)| (0<<TWWC);
 	break;     
 
-    case TWI_SRX_GEN_ACK:            // General call address has been received; ACK has been returned
-    case TWI_SRX_ADR_ACK:            // Own SLA+W has been received ACK has been returned
+    case TWI_SRX_GEN_ACK:
+    case TWI_SRX_ADR_ACK:
 	bcnt = 0;
 	// Reset the TWI Interupt to wait for a new event.
-	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);  
+	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
 	break;
 
-    case TWI_SRX_ADR_DATA_ACK:       // Previously addressed with own SLA+W; data has been received; ACK has been returned
-    case TWI_SRX_GEN_DATA_ACK:       // Previously addressed with general call; data has been received; ACK has been returned
+    case TWI_SRX_ADR_DATA_ACK:
+    case TWI_SRX_GEN_DATA_ACK:
 	data = TWDR;
 	switch (++bcnt) {
 	case 0:
@@ -211,7 +210,7 @@ ISR(TWI_vect)
 		prep_data = eeprom_read_byte((unsigned char *)eeaddr++);
 	    }
 	    else if (reg == RJ_VERSION) {
-		prep_data = VERSION_STR[eeaddr];
+		prep_data = pgm_read_byte(pgm_ptr);
 	    }
 	    break;
 
@@ -237,13 +236,13 @@ ISR(TWI_vect)
 	    else if (reg == EEDATA) {
 		eeprom_write_byte((unsigned char *)eeaddr, data);
 	    }
+	    else if (reg == RJ_VERSION) {
+		pgm_ptr = VERSION_STR;
+	    }
 	    else if ((reg == REBOOT) && (data == BOOTVAL)) {
 		TWCR |= (1<<TWINT) | (1<<TWEA);
 		wdt_enable(WDTO_30MS);
 		while(1) {}; 
-	    }
-	    else if (reg == RJ_VERSION) {
-		eeaddr = 0;
 	    }
 	    break;
 
@@ -268,16 +267,16 @@ ISR(TWI_vect)
 	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
 	break;
 
-    case TWI_SRX_STOP_RESTART:       // A STOP condition or repeated START condition has been received while still addressed as Slave    
+    case TWI_SRX_STOP_RESTART:
 	// Enter not addressed mode and listen to address match
 	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
 	break;           
 
-    case TWI_SRX_ADR_DATA_NACK:		// Previously addressed with own SLA+W; data has been received; NOT ACK has been returned
-    case TWI_SRX_GEN_DATA_NACK:		// Previously addressed with general call; data has been received; NOT ACK has been returned
-    case TWI_STX_DATA_ACK_LAST_BYTE:	// Last data byte in TWDR has been transmitted (TWEA = “0”); ACK has been received
-    case TWI_BUS_ERROR:			// Bus error due to an illegal START or STOP condition
-	TWCR = (1<<TWSTO) | (1<<TWINT);	// Recover from TWI_BUS_ERROR, this will release the SDA and SCL pins thus enabling other devices to use the bus
+    case TWI_SRX_ADR_DATA_NACK:
+    case TWI_SRX_GEN_DATA_NACK:
+    case TWI_STX_DATA_ACK_LAST_BYTE:
+    case TWI_BUS_ERROR:
+	TWCR = (1<<TWSTO) | (1<<TWINT);
 	break;
 
     default:
