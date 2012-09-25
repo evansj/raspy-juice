@@ -80,7 +80,7 @@ size: $(TARGET).elf
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) dep/* $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~
+	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~
 
 flashinstall: $(TARGET).hex
 	/usr/sbin/i2cset -y 0 0x48 0xb0 0x0d ; sleep 0.5 ; /usr/local/bin/twiboot -a 0x29 -w flash:$(TARGET).hex
