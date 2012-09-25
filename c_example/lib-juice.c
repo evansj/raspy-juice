@@ -17,6 +17,7 @@ int rj_readbyte(int subreg);
 int rj_writebyte(int subreg, int data);
 int rj_readword(int subreg);
 int rj_writeword(int subreg, int data);
+int rj_readblock(int subreg, char *inbuf);
 
 int rj_readbyte_dbg(int subreg, const char *caller);
 int rj_writebyte_dbg(int subreg, int data, const char *caller);
@@ -49,7 +50,7 @@ char *rj_getversion(void)
     int i;
 
     i = 0;
-    rj_writeword(RJ_VERSION, 0);
+    rj_writebyte(RJ_VERSION, 0);
 
     do {
 	version_str[i] = rj_readbyte(RJ_VERSION);
@@ -161,6 +162,24 @@ int rj_readword(int subreg)
 
     return rval;
 }   
+
+int rj_readblock(int subreg, char *inbuf)
+{
+    int rval, retry = 3;
+    do {
+	rval = i2c_smbus_read_block_data(rj_file, subreg, inbuf);
+	if (rval < 0) {
+	    retry--;
+	    usleep(RETRY_TIMEOUT);
+	}
+    } while ((rval < 0) && (retry > 0));
+   
+    if (rval < 0)
+	fprintf(stderr, "i2c_smbus_read_block_data failed.\n");
+
+    return rval;
+}
+
 
 int rj_writebyte(int subreg, int data)
 {
