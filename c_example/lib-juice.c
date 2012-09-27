@@ -83,13 +83,13 @@ int rj232_getc(void)
     return rj_readbyte(RS232D);
 }
 
-int rj232_read(void)
+int rj232_read(unsigned char *inbuf, int maxlen)
 {
     int i = 0;
-    while ((rj_readstat() & RXA232) && (i < BUFSIZE)) {
-	rs232_inbuf[i++] = rj232_getc();
+    while ((rj_readstat() & RXA232) && (i < maxlen)) {
+	inbuf[i++] = rj232_getc();
     }
-    rs232_inbuf[i] = 0;
+    inbuf[i] = 0;
     return i;
 }
 
@@ -214,4 +214,38 @@ int rj_writeword(int subreg, int data)
 
     return rval;
 }   
+
+typedef struct avr_swuart_baud_setting {
+    int bps;
+    unsigned char prescaler;
+    unsigned char ticks;
+} avr_swuart_baud_setting;
+
+struct avr_swuart_baud_setting avr_rates[] = {
+    { 1200, 0x05, 96 },
+    { 2400, 0x04, 96 },
+    { 4800, 0x04, 48 },
+    { 9600, 0x04, 24 },
+    { 14400, 0x04, 16 },
+    { 19200, 0x04, 12 },
+    { 38400, 0x04, 6 },
+};
+
+int avr_rates_max = sizeof(avr_rates) / sizeof (avr_swuart_baud_setting);
+
+
+int rj232_setbaud(int bps)
+{
+    int i = 0;
+    
+    while (i < avr_rates_max) {
+	if (avr_rates[i].bps == bps) {
+	    printf("rs232_setbaud: FOUND\n");
+	    return rj_writeword(RS232BPS, (avr_rates[i].prescaler << 8) | 
+				(avr_rates[i].ticks));
+	}
+	i++;
+    }
+    return -1;
+}
 
