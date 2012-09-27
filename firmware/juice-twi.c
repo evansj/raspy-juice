@@ -121,31 +121,34 @@ int main(void)
  * AppNote           : AVR311 - TWI Slave Implementation
  * Description       : Interrupt-driver sample driver to AVRs TWI module. 
  ****************************************************************************/
+
+#define DEFAULT_BPS9600_PRESCALER	0b100   // clk/64
+#define DEFAULT_BPS9600_FULLPERIOD	24	// 104us
+
 ISR(TWI_vect)
 {
-    static unsigned char bcnt, reg, prep_data;
+    static unsigned char bcnt, reg, prep_data, lobyte;
     static int servo_pwm, eeaddr;
     static const char *pgm_ptr;
     unsigned char data;
     
     twi_state = TWSR;
     switch (twi_state & 0xF8) {
+	/* TWI SLAVE REGISTER READS */
     case TWI_STX_ADR_ACK:
     case TWI_STX_DATA_ACK:
 	TWDR = prep_data;
-	TWCR = (1<<TWEN)| (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);                      
-
+	TWCR = (1<<TWEN)| (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
 	if (reg == ADCDAT) {
 	    prep_data = ADCH;
 	}
-
 #if 0
 	// TODO: have to re-think how to slave-xmit multiple bytes for
 	// received data with ack/nack. Can't put the below lines because
 	// if master asks for 1 byte only, pre-unload of reception FIFO's
 	// will lose the data. So, for now, the master has to check GSTAT,
 	// followed by single byte read -- a bit inefficient.
-
+	
 	else if (reg == RS232D) {
 	    if (rs232_havechar())
 		prep_data = rs232_getc();
@@ -177,6 +180,7 @@ ISR(TWI_vect)
 	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
 	break;
 
+	/* TWI SLAVE REGISTER WRITES */
     case TWI_SRX_ADR_DATA_ACK:
     case TWI_SRX_GEN_DATA_ACK:
 	data = TWDR;
@@ -221,6 +225,9 @@ ISR(TWI_vect)
 	    else if (reg == RS232D) {
 		rs232_putc(data);
 	    }
+	    else if (reg == RS232BPS) {
+		lobyte = data;
+	    }
 	    else if (reg == RS485D) {
 		rs485_putc(data);
 	    }
@@ -253,6 +260,10 @@ ISR(TWI_vect)
 	    }
 	    else if (reg == RS232D) {
 		rs232_putc(data);
+	    }
+	    else if (reg == RS232BPS) {
+//		rs232_swuart_setbaud(DEFAULT_BPS9600_PRESCALER, DEFAULT_BPS9600_FULLPERIOD);
+		rs232_swuart_setbaud(data, lobyte);
 	    }
 	    else if (reg == RS485D) {
 		rs485_putc(data);

@@ -101,6 +101,7 @@
 #define DITDIT	120
 
 void rs232_swuart_init(void);
+void rs232_swuart_setbaud(unsigned char clock_prescale, unsigned char period_ticks);
 void rs232_swuart_off(void);
 char rs232_havechar(void);
 char rs232_getc(void);
@@ -146,6 +147,7 @@ void servo_set(unsigned char chan, int usec);
 
 /* AVR RS232 registers */
 #define RS232D	0x10
+#define RS232BPS 0x15
 
 /* AVR RS485 registers */
 #define RS485D	0x20

@@ -36,13 +36,8 @@
 #include <avr/interrupt.h>
 
 /* With MCU clock of 14.7456MHz prescaled by 256, period = 34.7us */
-#define BPS9600_TIMER_PRESCALE	0b100   // clk/64
-#define BPS9600_FULLPERIOD	24	// 104us
-#define BPS9600_ONEHALFPERIOD	36
-
-#define BPS_PRESCALER		BPS9600_TIMER_PRESCALE
-#define BPS_FULLPERIOD		BPS9600_FULLPERIOD
-#define BPS_ONEHALFPERIOD	BPS9600_ONEHALFPERIOD
+#define DEFAULT_BPS9600_PRESCALER	0b100   // clk/64
+#define DEFAULT_BPS9600_FULLPERIOD	24	// 104us
 
 #define PD2_INT0_ENABLE()	{ EIFR |= (1<<INTF0);  EIMSK |=  (1<<INT0); }
 #define PD2_INT0_DISABLE()	{ EIMSK &= ~(1<<INT0); }
@@ -60,6 +55,10 @@ static volatile int  swuart_recv_reg;
 static volatile int  swuart_xmit_reg;
 static volatile char rxhead, rxtail, txhead, txtail;
 
+static volatile uint8_t prescalar; 
+static volatile uint8_t fullperiod;
+static volatile uint8_t onehalfperiod;
+
 #define RS232_RX_BUFSIZE 64
 #define RS232_TX_BUFSIZE 64
 #define RS232_RX_BUFMASK (RS232_RX_BUFSIZE - 1)
@@ -73,16 +72,26 @@ static volatile char rxhead, rxtail, txhead, txtail;
 unsigned char rs232_rxbuf[RS232_RX_BUFSIZE];
 unsigned char rs232_txbuf[RS232_TX_BUFSIZE];
 
+void rs232_swuart_setbaud(uint8_t clock_prescale, uint8_t period_ticks)
+{
+    TCCR2A = (1<<WGM21) | (0<<WGM20);
+    TCCR2B = clock_prescale & 0b00000111;
+
+    fullperiod = period_ticks - 1;
+    /* one and a half multiplication of fullperiod */
+    onehalfperiod = period_ticks + (period_ticks >> 1);
+    OCR2A = fullperiod;
+}
+
 void rs232_swuart_init(void)
 {
     rxhead = rxtail = txhead = txtail = 0;
 
     /* enable falling-edge INT0 on PD2 pin */
     EICRA |= ((1<<ISC01) | (0<<ISC00));
-    /* set timer2 prescaler, mode and run */
-    TCCR2A = (1<<WGM21) | (0<<WGM20);
-    TCCR2B = (0<<WGM22) | BPS_PRESCALER;
-    OCR2A = BPS_FULLPERIOD - 1;
+    /* set timer2 clear-on-compare-match mode */
+    rs232_swuart_setbaud(DEFAULT_BPS9600_PRESCALER, DEFAULT_BPS9600_FULLPERIOD);
+
     swuart_state = IDLE;
     RS232_TXD_HIGH();
     TIMER2_INT_DISABLE();
@@ -164,7 +173,7 @@ void rs232_puts(char *s)
 ISR(INT0_vect)
 {
     TCNT2 = 0;
-    OCR2A = BPS_ONEHALFPERIOD;
+    OCR2A = onehalfperiod;
     TIMER2_INT_ENABLE();
     if (swuart_state == IDLE) {
 	swuart_state = RECV_START;
@@ -179,7 +188,7 @@ ISR(TIMER2_COMPA_vect)
     unsigned char tmphead;
 
 
-    OCR2A = BPS_FULLPERIOD - 1;
+    OCR2A = fullperiod;
     
     /* do nothing if in IDLE state */
     if (swuart_state == IDLE)
