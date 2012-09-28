@@ -111,7 +111,8 @@ void rs232_puts(char *);
 int rs232_putchar(char c, FILE *stream);
 int rs232_getchar(FILE *stream);
 
-void rs485_init(unsigned long baud);
+void rs485_init(void);
+void rs485_setbaud(int ubrr);
 char rs485_havechar(void);
 unsigned char rs485_getc(void);
 void rs485_putc(unsigned char c);
@@ -147,10 +148,11 @@ void servo_set(unsigned char chan, int usec);
 
 /* AVR RS232 registers */
 #define RS232D	0x10
-#define RS232BPS 0x15
+#define BPS232 0x15
 
 /* AVR RS485 registers */
 #define RS485D	0x20
+#define BPS485	0x25
 
 /* AVR ADC set and readback registers */
 #define ADCMUX	0x40

@@ -72,17 +72,6 @@ static volatile uint8_t onehalfperiod;
 unsigned char rs232_rxbuf[RS232_RX_BUFSIZE];
 unsigned char rs232_txbuf[RS232_TX_BUFSIZE];
 
-void rs232_swuart_setbaud(uint8_t clock_prescale, uint8_t period_ticks)
-{
-    TCCR2A = (1<<WGM21) | (0<<WGM20);
-    TCCR2B = clock_prescale & 0b00000111;
-
-    fullperiod = period_ticks - 1;
-    /* one and a half multiplication of fullperiod */
-    onehalfperiod = period_ticks + (period_ticks >> 1);
-    OCR2A = fullperiod;
-}
-
 void rs232_swuart_init(void)
 {
     rxhead = rxtail = txhead = txtail = 0;
@@ -96,6 +85,17 @@ void rs232_swuart_init(void)
     RS232_TXD_HIGH();
     TIMER2_INT_DISABLE();
     PD2_INT0_ENABLE();
+}
+
+void rs232_swuart_setbaud(uint8_t clock_prescale, uint8_t period_ticks)
+{
+    TCCR2A = (1<<WGM21) | (0<<WGM20);
+    TCCR2B = clock_prescale & 0b00000111;
+
+    fullperiod = period_ticks - 1;
+    /* one and a half multiplication of fullperiod */
+    onehalfperiod = period_ticks + (period_ticks >> 1);
+    OCR2A = fullperiod;
 }
 
 void rs232_swuart_off(void)

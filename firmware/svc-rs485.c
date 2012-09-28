@@ -35,7 +35,7 @@
 #include "juice.h"
 #include <avr/interrupt.h>
 
-#define MYUBRR (F_CPU/16/BAUD-1)
+#define DEFAULT_BPS115200_UBRR (F_CPU/16/115200L-1)
 
 #define RS485_RX_BUFSIZE 64
 #define RS485_TX_BUFSIZE 64
@@ -55,21 +55,22 @@ static volatile unsigned char rxhead, rxtail, txhead, txtail;
 /* localecho may be used for collision detection, currently unset */
 volatile unsigned localecho;
 
-void rs485_init(unsigned long baud)
+void rs485_init(void)
 {
     localecho = 0;
     rxhead = rxtail = txhead = txtail = 0;
-
-    /* Set baud rate */
-    unsigned long ubrr = (F_CPU / 16 / baud - 1);
-    UBRR0H = (unsigned char)(ubrr>>8);
-    UBRR0L = (unsigned char)(ubrr>>0);
+    rs485_setbaud(DEFAULT_BPS115200_UBRR);
     RS485_TXEN_OFF();
     /* Enable receiver and transmitter */
     UCSR0B = (1<<RXCIE0) |  (1<<RXEN0) | (1<<TXEN0) | (1<<TXCIE0);
     /* Set frame format: Async,8,N,1 */
     UCSR0C = 0b00000110;
 }     
+
+void rs485_setbaud(int ubrr)
+{
+    UBRR0 = ubrr;
+}
 
 ISR(USART_RX_vect)
 {

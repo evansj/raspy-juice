@@ -77,7 +77,7 @@ int main(void)
     JUICE_PCBA_PINS_INIT();
     
     rs232_swuart_init();
-    rs485_init(115200);
+    rs485_init();
     servo_init();
     /* Enable ADC, and set clock prescaler to div 128 */
     ADCSRA = (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
@@ -225,11 +225,14 @@ ISR(TWI_vect)
 	    else if (reg == RS232D) {
 		rs232_putc(data);
 	    }
-	    else if (reg == RS232BPS) {
+	    else if (reg == BPS232) {
 		lobyte = data;
 	    }
 	    else if (reg == RS485D) {
 		rs485_putc(data);
+	    }
+	    else if (reg == BPS485) {
+		lobyte = data;
 	    }
 	    else if (reg == ADCMUX) {
 		/* Set mux here, force ADLAR bit to zero, and start */
@@ -261,12 +264,14 @@ ISR(TWI_vect)
 	    else if (reg == RS232D) {
 		rs232_putc(data);
 	    }
-	    else if (reg == RS232BPS) {
-//		rs232_swuart_setbaud(DEFAULT_BPS9600_PRESCALER, DEFAULT_BPS9600_FULLPERIOD);
-		rs232_swuart_setbaud(data, lobyte);
-	    }
 	    else if (reg == RS485D) {
 		rs485_putc(data);
+	    }
+	    else if (reg == BPS232) {
+		rs232_swuart_setbaud(data, lobyte);
+	    }
+	    else if (reg == BPS485) {
+		rs485_setbaud((data << 8) | lobyte);
 	    }
 	    else if (reg == EEADDR) {
 		eeaddr = ((data << 8) & 0x01) | eeaddr;
