@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     int count = 0;
     int i, rval, stat, b, baud;
     
-    printf("Hello, world! I am example3 - reading/writing data from AVR-RS232\n");
+    printf("Hello, world! I am example3 - reading/writing data from AVR-RS485");
     
     rval = rj_open(devbusname, i2caddr);
     if (rval < 0) {
@@ -40,11 +40,11 @@ int main(int argc, char *argv[])
     }
     printf("\n");
 
-    baud = 38400;
-    if (rj232_setbaud(baud))
-	printf("rs232: set baud failed.\n");
+    baud = 230400;
+    if (rj485_setbaud(baud))
+	printf("rs485: set baud failed.\n");
     else
-	printf("rj232: set baud to %dbps succeeded.\n", baud);
+	printf("rj485: set baud to %dbps succeeded.\n", baud);
 
     while (1) {
 	count++;
@@ -68,17 +68,17 @@ int main(int argc, char *argv[])
 
 	fflush(stdout);
 
-	if (stat & RXA232) {
-	    rval = rj232_read((unsigned char *)inbuf, BUFSIZE);
-	    printf("\nrs232: ");
+	if (stat & RXA485) {
+	    rval = rj485_read((unsigned char *)inbuf, BUFSIZE);
+	    printf("\nrs485: ");
 	    for (i = 0; inbuf[i] != 0; i++)
 		printf("0x%02x ", inbuf[i]);
 	    printf(": %s \n", inbuf);
 	}
 
 	if ((count % 10) == 0) {
-	    sprintf(outbuf, "Hello 232!!! count = %d\n\r", count);
-	    rj232_send((unsigned char *)outbuf, strlen(outbuf));
+	    sprintf(outbuf, "Hello 485!!! count = %d\n\r", count);
+	    rj485_send((unsigned char *)outbuf, strlen(outbuf));
 	}
 
 	usleep(100000);

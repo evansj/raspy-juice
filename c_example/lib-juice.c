@@ -17,17 +17,10 @@ int rj_readbyte(int subreg);
 int rj_writebyte(int subreg, int data);
 int rj_readword(int subreg);
 int rj_writeword(int subreg, int data);
-int rj_readblock(int subreg, char *inbuf);
-
-int rj_readbyte_dbg(int subreg, const char *caller);
-int rj_writebyte_dbg(int subreg, int data, const char *caller);
-int rj_readword_dbg(int subreg, const char *caller);
-int rj_writeword_dbg(int subreg, int data, const char *caller);
+int rj_readblock(int subreg, void *inbuf);
 
 #define BUFSIZE 64
 char version_str[BUFSIZE];
-unsigned char rs232_inbuf[BUFSIZE];
-unsigned char rs485_inbuf[BUFSIZE];
 
 int rj_open(const char *devbusname, int i2caddr)
 {
@@ -83,13 +76,13 @@ int rj232_getc(void)
     return rj_readbyte(RS232D);
 }
 
-int rj232_read(unsigned char *inbuf, int maxlen)
+int rj232_read(unsigned char *buf, int maxlen)
 {
     int i = 0;
     while ((rj_readstat() & RXA232) && (i < maxlen)) {
-	inbuf[i++] = rj232_getc();
+	buf[i++] = rj232_getc();
     }
-    inbuf[i] = 0;
+    buf[i] = 0;
     return i;
 }
 
@@ -98,13 +91,13 @@ int rj485_getc(void)
     return rj_readbyte(RS485D);
 }
 
-int rj485_read(void)
+int rj485_read(unsigned char *buf, int maxlen)
 {
     int i = 0;
-    while ((rj_readstat() & RXA485) && (i < BUFSIZE)) {
-	rs485_inbuf[i++] = rj485_getc();
+    while ((rj_readstat() & RXA485) && (i < maxlen)) {
+	buf[i++] = rj485_getc();
     }
-    rs485_inbuf[i] = 0;
+    buf[i] = 0;
     return i;
 }
 
@@ -163,7 +156,7 @@ int rj_readword(int subreg)
     return rval;
 }   
 
-int rj_readblock(int subreg, char *inbuf)
+int rj_readblock(int subreg, void *inbuf)
 {
     int rval, retry = 3;
     do {
@@ -215,7 +208,7 @@ int rj_writeword(int subreg, int data)
     return rval;
 }   
 
-typedef struct avr_swuart_baud_setting {
+struct avr_swuart_baud_setting {
     int bps;
     unsigned char prescaler;
     unsigned char ticks;
@@ -230,9 +223,7 @@ struct avr_swuart_baud_setting avr_rates[] = {
     { 19200, 0x04, 12 },
     { 38400, 0x04, 6 },
 };
-
 int avr_rates_max = sizeof(avr_rates) / sizeof (avr_swuart_baud_setting);
-
 
 int rj232_setbaud(int bps)
 {
@@ -240,8 +231,7 @@ int rj232_setbaud(int bps)
     
     while (i < avr_rates_max) {
 	if (avr_rates[i].bps == bps) {
-	    printf("rs232_setbaud: FOUND\n");
-	    return rj_writeword(RS232BPS, (avr_rates[i].prescaler << 8) | 
+	    return rj_writeword(BPS232, (avr_rates[i].prescaler << 8) | 
 				(avr_rates[i].ticks));
 	}
 	i++;
@@ -249,3 +239,36 @@ int rj232_setbaud(int bps)
     return -1;
 }
 
+struct avr_usart_baud_setting {
+    int bps;
+    int ubrr;
+} avr_usart_baud_setting;
+
+#define F_CPU 14745600UL
+#define UBRR_V(BAUD) (F_CPU / 16 / (unsigned long)(BAUD) - 1) 
+
+struct avr_usart_baud_setting avr_ubrrs[] = {
+    { 1200,	UBRR_V(1200)	},
+    { 2400,	UBRR_V(2400)	},
+    { 4800,	UBRR_V(4800)	},
+    { 9600,	UBRR_V(9600)	},
+    { 14400,	UBRR_V(14400)	},
+    { 19200,	UBRR_V(19200)	},
+    { 38400,	UBRR_V(38400)	},
+    { 57600,	UBRR_V(57600)	},
+    { 115200,	UBRR_V(115200)	},
+    { 230400,	UBRR_V(230400)	},
+};
+int avr_ubrrs_max = sizeof(avr_ubrrs) / sizeof (avr_usart_baud_setting);
+
+int rj485_setbaud(int bps)
+{
+    int i = 0;
+    
+    while (i < avr_ubrrs_max) {
+	if (avr_ubrrs[i].bps == bps)
+	    return rj_writeword(BPS485, avr_ubrrs[i].ubrr);
+	i++;
+    }
+    return -1;
+}

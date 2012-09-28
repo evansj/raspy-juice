@@ -24,8 +24,9 @@ int rj232_getc(void);
 int rj232_read(unsigned char *buf, int maxlen);
 int rj232_send(unsigned char *buf, int len);
 
-int rj485_read(void);
+int rj485_setbaud(int speed);
 int rj485_getc(void);
+int rj485_read(unsigned char *buf, int maxlen);
 int rj485_send(unsigned char *buf, int len);
 
 #endif /* __JUICE_DEV_H__ */
