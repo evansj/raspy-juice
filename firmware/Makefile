@@ -2,12 +2,15 @@
 # Makefile for the project juice
 ###############################################################################
 
+
+## Raspberry Pi
+PI_I2CBUS = 0
+
 ## General Flags
 PROJECT = juice
 TARGET = juice
 MCU = atmega168a
 CC = avr-gcc
-
 CPP = avr-g++
 
 ## Options common to compile, link and assembly rules
@@ -44,7 +47,10 @@ LINKONLYOBJECTS =
 
 ## Build
 #all: $(TARGET).elf $(TARGET).hex $(TARGET).lss size
-all: $(TARGET).elf $(TARGET).hex
+all: $(TARGET).elf $(TARGET).hex test-adc
+
+test-adc: juice.h juice-dev.h lib-juice.c test-adc.c
+	gcc -o test-adc lib-juice.c test-adc.c
 
 ## Compile
 juice-twi.o: juice-twi.c juice.h
@@ -80,10 +86,10 @@ size: $(TARGET).elf
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~
+	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~ test-adc
 
 flashinstall: $(TARGET).hex
-	/usr/sbin/i2cset -y 0 0x48 0xb0 0x0d ; sleep 0.5 ; /usr/local/bin/twiboot -a 0x29 -w flash:$(TARGET).hex
+	/usr/sbin/i2cset -y $(PI_I2CBUS)  0x48 0xb0 0x0d ; sleep 0.5 ; /usr/local/bin/twiboot -d /dev/i2c-$(PI_I2CBUS) -a 0x29 -w flash:$(TARGET).hex
 
 ## Other dependencies
 -include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
