@@ -100,6 +100,11 @@
 #define PERIOD	400
 #define DITDIT	120
 
+
+/* I2C master routines for boot-up sanity checks of RTC */
+void i2c_write(unsigned char addr, unsigned char *buf, int len);
+void i2c_read(unsigned char addr, unsigned char *buf, int len);
+
 void rs232_swuart_init(void);
 void rs232_swuart_setbaud(unsigned char clock_prescale, unsigned char period_ticks);
 void rs232_swuart_off(void);
