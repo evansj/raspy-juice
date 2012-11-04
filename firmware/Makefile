@@ -91,6 +91,9 @@ clean:
 flashinstall: $(TARGET).hex
 	/usr/sbin/i2cset -y $(PI_I2CBUS)  0x48 0xb0 0x0d ; sleep 0.5 ; /usr/local/bin/twiboot -d /dev/i2c-$(PI_I2CBUS) -a 0x29 -w flash:$(TARGET).hex
 
+reset:
+	/usr/sbin/i2cset -y $(PI_I2CBUS)  0x48 0xb0 0x0d
+
 ## Other dependencies
 -include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
 
