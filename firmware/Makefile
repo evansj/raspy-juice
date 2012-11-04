@@ -40,14 +40,14 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = juice-twi.o svc-servo.o svc-rs232.o svc-rs485.o
+OBJECTS = juice-twi.o svc-servo.o svc-rs232.o svc-rs485.o i2c-master.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
 ## Build
 #all: $(TARGET).elf $(TARGET).hex $(TARGET).lss size
-all: $(TARGET).elf $(TARGET).hex test-adc
+all: $(TARGET).elf $(TARGET).hex
 
 test-adc: juice.h juice-dev.h lib-juice.c test-adc.c
 	gcc -o test-adc lib-juice.c test-adc.c
