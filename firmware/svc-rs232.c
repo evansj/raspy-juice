@@ -153,8 +153,8 @@ int rs232_getchar(FILE *stream)
 
 int rs232_putchar(char c, FILE *stream)
 {
-    if (c == '\r')
-	rs232_putc('\n');
+    if (c == '\n')
+	rs232_putc('\r');
     rs232_putc(c);
     return 0;
 }
