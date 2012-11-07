@@ -38,6 +38,8 @@
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <util/delay.h>
+#define msleep(X)       _delay_ms((X))
 
 char const VERSION_STR[] PROGMEM = "$Id$";
 
@@ -64,8 +66,6 @@ void led_heartbeat(void)
     }
 }
 
-
-#define JUICE_DEBUG 1
 
 #ifdef TWI_POLL_MODE
 # define JUICE_DEBUG 1
@@ -113,14 +113,14 @@ int main(void)
     
     sei();
 
+#if 0
     /* Test printouts */
     stdout = stdin = &rs232_stream;
     rs232_puts("\nTEST\n");
     printf("Test Application\n");
     printf_P(PSTR("Test Application of RTC\n"));
     printf_P(VERSION_STR);
-    TWI_debug("\nSecond line: %s\n");
-    
+#endif
 
     /* Initialise AVR TWI as master */
     TWBR = 1;
@@ -128,14 +128,16 @@ int main(void)
 
     pcf8523_set_cont_regs();
 
+#if 0
     i2c_buf[0] = 0;	// set register addr to 0
     i2c_write(PCF8523_ADDR, i2c_buf, 1);
     i2c_read( PCF8523_ADDR, i2c_buf, 10);
-    TWI_debug("FIRST READ: ");
+    printf("FIRST READ: ");
     for (i = 0; i < 10; i++) {
-	TWI_debug("0x%02x ", i2c_buf[i]);
+	printf("0x%02x ", i2c_buf[i]);
     }
     printf("\n");
+#endif
     
     /* Re-initialise AVR TWI module as slave */
     TWAR = (AVRSLAVE_ADDR << 1);
