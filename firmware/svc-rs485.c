@@ -140,8 +140,8 @@ int rs485_getchar(FILE *stream)
 
 int rs485_putchar(char c, FILE *stream)
 {
-    if (c == '\r')
-	rs485_putc('\n');
+    if (c == '\n')
+	rs485_putc('\r');
     rs485_putc(c);
     return 0;
 }
