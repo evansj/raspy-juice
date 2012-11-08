@@ -38,13 +38,13 @@
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include <util/delay.h>
-#define msleep(X)       _delay_ms((X))
 
 char const VERSION_STR[] PROGMEM = "$Id$";
 
+#if 0
 FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
 				      _FDEV_SETUP_RW);
+#endif
 
 volatile static unsigned char twi_state = 0;
 
@@ -66,17 +66,13 @@ void led_heartbeat(void)
     }
 }
 
-
 #ifdef TWI_POLL_MODE
-# define JUICE_DEBUG 1
-#endif
-
-#ifdef JUICE_DEBUG
 # define TWI_debug(fmt, ...)	printf(fmt, ##__VA_ARGS__)
 #else
 # define TWI_debug(fmt, ...)
 #endif
 
+#ifdef RTC_DEBUG
 void pcf8523_reset(void)
 {
     i2c_buf[0] = 0;
@@ -84,16 +80,41 @@ void pcf8523_reset(void)
     i2c_write(PCF8523_ADDR, i2c_buf, 2);
 }
 
+void pcf8523_dispregs(char *title)
+{
+    int i;
+
+    i2c_buf[0] = 0;	// set register addr to 0
+    i2c_write(PCF8523_ADDR, i2c_buf, 1);
+    i2c_read( PCF8523_ADDR, i2c_buf, 10);
+    printf("%s", title);
+    for (i = 0; i < 10; i++) {
+	printf("0x%02x ", i2c_buf[i]);
+    }
+    printf("\n");
+}
+#endif
+
 void pcf8523_set_cont_regs(void)
 {
+    unsigned char cont_1, cont_2, cont_3;
+
+    i2c_buf[0] = 0;	// set register addr to 0
+    i2c_write(PCF8523_ADDR, i2c_buf, 1);
+    i2c_read( PCF8523_ADDR, i2c_buf, 3);
+
+    /* cap_sel = 12.5pF crystal */
+    cont_1 = i2c_buf[0] | 0b10000000;
+    /* don't touch cont_2 bits */
+    cont_2 = i2c_buf[1];
+    /* Battery switchover and low-detection enabled */
+    cont_3 = i2c_buf[2] & 0xb00011111;
+    
     /* Register address offset pointer = 0 */
     i2c_buf[0] = 0;
-    /* Control_1: 12.5pF crystal, others default */
-    i2c_buf[1] = 0b10000000;
-    /* Control_2: default */
-    i2c_buf[2] = 0;
-    /* Control_3: PM[2..0] = batt switchover enabled */
-    i2c_buf[3] = 0;
+    i2c_buf[1] = cont_1;
+    i2c_buf[2] = cont_2;
+    i2c_buf[3] = cont_3;
     i2c_write(PCF8523_ADDR, i2c_buf, 4);
 }
 
@@ -101,7 +122,6 @@ int main(void)
 {
     unsigned char twi_last_state = 0;
     int twi_reset_count = 0;
-    int i;
 
     JUICE_PCBA_PINS_INIT();
     
@@ -113,13 +133,12 @@ int main(void)
     
     sei();
 
-#if 0
+#ifdef RTC_DEBUG
     /* Test printouts */
     stdout = stdin = &rs232_stream;
-    rs232_puts("\nTEST\n");
-    printf("Test Application\n");
-    printf_P(PSTR("Test Application of RTC\n"));
+    printf_P(PSTR("\nTest Application of RTC control bits fix.\n"));
     printf_P(VERSION_STR);
+    printf_P(PSTR("\n"));
 #endif
 
     /* Initialise AVR TWI as master */
@@ -128,17 +147,10 @@ int main(void)
 
     pcf8523_set_cont_regs();
 
-#if 0
-    i2c_buf[0] = 0;	// set register addr to 0
-    i2c_write(PCF8523_ADDR, i2c_buf, 1);
-    i2c_read( PCF8523_ADDR, i2c_buf, 10);
-    printf("FIRST READ: ");
-    for (i = 0; i < 10; i++) {
-	printf("0x%02x ", i2c_buf[i]);
-    }
-    printf("\n");
+#ifdef RTC_DEBUG
+    pcf8523_dispregs("After bits mods: ");
 #endif
-    
+
     /* Re-initialise AVR TWI module as slave */
     TWAR = (AVRSLAVE_ADDR << 1);
     TWCR = (1<<TWINT) | (1<<TWEA) | (1<<TWEN) | (1<<TWIE);
