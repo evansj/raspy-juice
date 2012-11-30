@@ -1,10 +1,14 @@
 ###############################################################################
-# Makefile for the project juice
+# Makefile for the Raspy Juice firmware and Flash update
 ###############################################################################
 
-
 ## Raspberry Pi
-PI_I2CBUS = 0
+PI_MODEL =  $(shell i2cdetect -y 0 | grep -e '29\|48' )
+ifeq ( $(PI_MODEL), )
+  PI_I2CBUS = 0
+else
+  PI_I2CBUS = 1
+endif
 
 ## General Flags
 PROJECT = juice
@@ -47,10 +51,7 @@ LINKONLYOBJECTS =
 
 ## Build
 #all: $(TARGET).elf $(TARGET).hex $(TARGET).lss size
-all: $(TARGET).elf $(TARGET).hex
-
-test-adc: juice.h juice-dev.h lib-juice.c test-adc.c
-	gcc -o test-adc lib-juice.c test-adc.c
+all: $(TARGET).elf $(TARGET).hex 
 
 ## Compile
 juice-twi.o: juice-twi.c juice.h
@@ -86,7 +87,7 @@ size: $(TARGET).elf
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~ test-adc
+	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~ 
 
 flashinstall: $(TARGET).hex
 	/usr/sbin/i2cset -y $(PI_I2CBUS)  0x48 0xb0 0x0d ; sleep 0.5 ; /usr/local/bin/twiboot -d /dev/i2c-$(PI_I2CBUS) -a 0x29 -w flash:$(TARGET).hex
