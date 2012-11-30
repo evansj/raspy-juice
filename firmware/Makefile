@@ -3,12 +3,8 @@
 ###############################################################################
 
 ## Raspberry Pi
-PI_MODEL =  $(shell i2cdetect -y 0 | grep -e '29\|48' )
-ifeq ( $(PI_MODEL), )
-  PI_I2CBUS = 0
-else
-  PI_I2CBUS = 1
-endif
+PI_REV = 
+PI_I2CBUS = 
 
 ## General Flags
 PROJECT = juice
@@ -85,15 +81,26 @@ size: $(TARGET).elf
 	@avr-size -C --mcu=${MCU} $(TARGET).elf
 
 ## Clean target
-.PHONY: clean
+.PHONY: clean test_pi_rev
 clean:
 	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~ 
 
-flashinstall: $(TARGET).hex
-	/usr/sbin/i2cset -y $(PI_I2CBUS)  0x48 0xb0 0x0d ; sleep 0.5 ; /usr/local/bin/twiboot -d /dev/i2c-$(PI_I2CBUS) -a 0x29 -w flash:$(TARGET).hex
+## Installation
+test_pi_rev:
+PI_REV = $(shell /usr/sbin/i2cdetect -y 1 | grep -e '29\|48' )
+ifeq ($(PI_REV),)
+  $(info Rev.1 PI_I2CBUS=0)
+  PI_I2CBUS = 0
+else
+  $(info Rev.2 PI_I2CBUS=1)
+  PI_I2CBUS = 1
+endif
 
-reset:
+reset: test_pi_rev
 	/usr/sbin/i2cset -y $(PI_I2CBUS)  0x48 0xb0 0x0d
+
+flashinstall: $(TARGET).hex test_pi_rev
+	/usr/sbin/i2cset -y $(PI_I2CBUS)  0x48 0xb0 0x0d ; sleep 0.5 ; /usr/local/bin/twiboot -d /dev/i2c-$(PI_I2CBUS) -a 0x29 -w flash:$(TARGET).hex
 
 ## Other dependencies
 -include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
