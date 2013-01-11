@@ -6,6 +6,11 @@ the old one is adopted for backporting to linux-3.6 to make the
 transition to linux-3.8 less painful. The instructions for patching
 listed below remains the same.
 
+The device driver registration in the board initialization of
+arch/arm/mach-bcm2708/bcm270.c has also been fixed to recognise Rev.1 or
+Rev.2 Raspberry Pi, where the I2C buses has been swapped. 
+
+
 2012-08-21 adnan
 
 This patch was found on http://lwn.net/Articles/461651/
