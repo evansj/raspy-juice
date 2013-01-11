@@ -1,3 +1,11 @@
+2012-01-11 adnan
+
+This newer patch for the PCF8523 RTC device driver was found already
+submitted to the upstream linux-3.8-rc3. This entire  replacement from
+the old one is adopted for backporting to linux-3.6 to make the
+transition to linux-3.8 less painful. The instructions for patching
+listed below remains the same.
+
 2012-08-21 adnan
 
 This patch was found on http://lwn.net/Articles/461651/
@@ -8,6 +16,6 @@ Slightly broken, the patch is now fixed and re-bundled up.
 # cd <your linux source tree>
 # patch -p1 <..../the patch file 0001-rtc-pcf8523.patch>
 # patch -p1 <..../the patch file 0002-pcf8523-i2c-register-dt.patch>
-# make config and enable i2c, pcf8523
+# make config and enable i2c_chardev, i2c_bcm2708, rtc_drv_pcf8523
 # make zImage modules modules_install
 
