@@ -101,8 +101,8 @@ int main(int argc, char *argv[])
 	adc_v7 = rj_readadc7();
 	volts6 = (3.3 * (10000 + 470 + 1000) / 1000) * adc_v6 / 0x3ff;
 	volts7 = (3.3 * (10000 + 470 + 1000) / 1000) * adc_v7 / 0x3ff;
-	printf("  ADC6 = 0x%04x, % 4d, %f ", adc_v6, adc_v6, volts6);
-	printf("  ADC7 = 0x%04x, % 4d, %f ", adc_v7, adc_v7, volts7);
+	printf("  ADC6 = 0x%04x, % 4d, %f\n\r", adc_v6, adc_v6, volts6);
+	printf("  ADC7 = 0x%04x, % 4d, %f\n\r", adc_v7, adc_v7, volts7);
 
 	fflush(stdout);
 
