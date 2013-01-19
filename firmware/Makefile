@@ -3,8 +3,8 @@
 ###############################################################################
 
 ## Raspberry Pi
-PI_REV = 
-PI_I2CBUS = 
+PI_REV =
+PI_I2CBUS =
 
 ## General Flags
 PROJECT = juice
@@ -19,7 +19,7 @@ COMMON = -mmcu=$(MCU)
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
 CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
-CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
@@ -40,14 +40,14 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = juice-twi.o svc-servo.o svc-rs232.o svc-rs485.o i2c-master.o
+OBJECTS = juice-twi.o svc-servo.o svc-rs232.o svc-rs485.o svc-adc.o i2c-master.o
 
 ## Objects explicitly added by the user
-LINKONLYOBJECTS = 
+LINKONLYOBJECTS =
 
 ## Build
 #all: $(TARGET).elf $(TARGET).hex $(TARGET).lss size
-all: $(TARGET).elf $(TARGET).hex 
+all: $(TARGET).elf $(TARGET).hex
 
 ## Compile
 juice-twi.o: juice-twi.c juice.h
@@ -62,6 +62,8 @@ svc-rs232.o: svc-rs232.c juice.h
 svc-rs485.o: svc-rs485.c juice.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
+svc-adc.o: svc-adc.c juice.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
 $(TARGET).elf: $(OBJECTS)
@@ -83,7 +85,7 @@ size: $(TARGET).elf
 ## Clean target
 .PHONY: clean test_pi_rev
 clean:
-	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~ 
+	-rm -rf $(OBJECTS) dep $(TARGET).elf $(TARGET).hex $(TARGET).eep $(TARGET).lss $(TARGET).map *~
 
 ## Installation
 test_pi_rev:

@@ -33,7 +33,6 @@
  ***********************************************************************/
 
 #include "juice.h"
-
 #include <avr/wdt.h>
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
@@ -42,7 +41,7 @@
 char const VERSION_STR[] PROGMEM = "$Id$";
 
 #if 0
-FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar, 
+FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar,
 				      _FDEV_SETUP_RW);
 #endif
 
@@ -51,7 +50,7 @@ volatile static unsigned char twi_state = 0;
 unsigned char i2c_buf[20];
 
 unsigned char led_state = 1;
-long led_counter = 0, led_timing[4] = { 500000L, 40000L, 20000L, 40000L }; 
+long led_counter = 0, led_timing[4] = { 500000L, 40000L, 20000L, 40000L };
 
 void led_heartbeat(void)
 {
@@ -109,7 +108,7 @@ void pcf8523_set_cont_regs(void)
     cont_2 = i2c_buf[1];
     /* Battery switchover and low-detection enabled */
     cont_3 = i2c_buf[2] & 0xb00011111;
-    
+
     /* Register address offset pointer = 0 */
     i2c_buf[0] = 0;
     i2c_buf[1] = cont_1;
@@ -124,13 +123,12 @@ int main(void)
     int twi_reset_count = 0;
 
     JUICE_PCBA_PINS_INIT();
-    
+
     rs232_swuart_init();
     rs485_init();
     servo_init();
-    /* Enable ADC, and set clock prescaler to div 128 */
-    ADCSRA = (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
-    
+    adc_init();
+
     sei();
 
 #ifdef RTC_DEBUG
@@ -171,18 +169,18 @@ int main(void)
 	    }
 	}
     }
-    
+
 }
 
 /****************************************************************************
  * The AVR TWI module slave transmitter mode is extremely timing sensitive to
  * tranfer bytes from itself as a slave to the master.
- * 
+ *
  * This TWI ISR follows the Atmel AVR311 App Note closely, where timing
  * priority is placed on TWI slave transmission of data
  * File              : TWI_Slave.c
  * AppNote           : AVR311 - TWI Slave Implementation
- * Description       : Interrupt-driver sample driver to AVRs TWI module. 
+ * Description       : Interrupt-driver sample driver to AVRs TWI module.
  ****************************************************************************/
 
 ISR(TWI_vect)
@@ -191,7 +189,7 @@ ISR(TWI_vect)
     static int servo_pwm, eeaddr;
     static const char *pgm_ptr;
     unsigned char data;
-    
+
     twi_state = TWSR;
     switch (twi_state & 0xF8) {
 	/* TWI SLAVE REGISTER READS */
@@ -208,7 +206,7 @@ ISR(TWI_vect)
 	// if master asks for 1 byte only, pre-unload of reception FIFO's
 	// will lose the data. So, for now, the master has to check GSTAT,
 	// followed by single byte read -- a bit inefficient.
-	
+
 	else if (reg == RS232D) {
 	    if (rs232_havechar())
 		prep_data = rs232_getc();
@@ -227,11 +225,11 @@ ISR(TWI_vect)
 	break;
 
     case TWI_STX_DATA_NACK:
-	// Data byte in TWDR has been transmitted; NACK has been received. 
+	// Data byte in TWDR has been transmitted; NACK has been received.
 	// Do nothing
 	// Reset the TWI Interupt to wait for a new event.
 	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO)| (0<<TWWC);
-	break;     
+	break;
 
     case TWI_SRX_GEN_ACK:
     case TWI_SRX_ADR_ACK:
@@ -250,10 +248,10 @@ ISR(TWI_vect)
 
 	case 1:
 	    reg = data;
-	    
+
 	    /* For readback registers, prepare data here */
 	    if (reg == GSTAT) {
-		prep_data = 
+		prep_data =
 		    (rs232_havechar() ? RXA232 : 0) |
 		    (rs485_havechar() ? RXA485 : 0) |
 		    (eeprom_is_ready() ? 0 : EEBUSY) |
@@ -261,6 +259,12 @@ ISR(TWI_vect)
 	    }
 	    else if (reg == ADCDAT) {
 		prep_data = ADCL;
+	    }
+	    else if (reg == ADCDAT6) {
+		prep_data = adc[0];
+	    }
+	    else if (reg == ADCDAT7) {
+		prep_data = adc[1];
 	    }
 	    else if (reg == RS232D) {
 		if (rs232_havechar())
@@ -312,7 +316,7 @@ ISR(TWI_vect)
 	    else if ((reg == REBOOT) && (data == BOOTVAL)) {
 		TWCR |= (1<<TWINT) | (1<<TWEA);
 		wdt_enable(WDTO_30MS);
-		while(1) {}; 
+		while(1) {};
 	    }
 	    break;
 
@@ -346,7 +350,7 @@ ISR(TWI_vect)
     case TWI_SRX_STOP_RESTART:
 	// Enter not addressed mode and listen to address match
 	TWCR = (1<<TWEN) | (1<<TWIE) | (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWWC);
-	break;           
+	break;
 
     case TWI_SRX_ADR_DATA_NACK:
     case TWI_SRX_GEN_DATA_NACK:

@@ -42,7 +42,7 @@
 #include <avr/pgmspace.h>
 #endif
 
-/* 
+/*
  * PD7: AVR-to-RPI-GPIO7 activity signal (and LED) output
  * PD6: Uncommitted exp pin, set as output
  * PD5: Uncommitted exp pin, set as output
@@ -128,6 +128,11 @@ int rs485_getchar(FILE *stream);
 void servo_init(void);
 void servo_set(unsigned char chan, int usec);
 
+extern volatile uint16_t adc[];
+
+void adc_init(void);
+void adc_start(void);
+void adc_stop(void);
 
 
 /* Addresses of I2C slaves on Juice PCBA */
@@ -162,6 +167,8 @@ void servo_set(unsigned char chan, int usec);
 /* AVR ADC set and readback registers */
 #define ADCMUX	0x40
 #define ADCDAT	0x41
+#define ADCDAT6	0x42
+#define ADCDAT7	0x43
 
 /* AVR ADC EEPROM registers */
 #define EEADDR	0x50
@@ -178,18 +185,18 @@ void servo_set(unsigned char chan, int usec);
  * AppNote           : AVR311 - TWI Slave Implementation
  * Description       : Header file for TWI_slave.c
  ****************************************************************************/
-// General TWI Master staus codes                      
-#define TWI_START                  0x08  // START has been transmitted  
+// General TWI Master staus codes
+#define TWI_START                  0x08  // START has been transmitted
 #define TWI_REP_START              0x10  // Repeated START has been transmitted
 #define TWI_ARB_LOST               0x38  // Arbitration lost
 
-// TWI Master Transmitter staus codes                      
+// TWI Master Transmitter staus codes
 #define TWI_MTX_ADR_ACK            0x18  // SLA+W has been tramsmitted and ACK received
-#define TWI_MTX_ADR_NACK           0x20  // SLA+W has been tramsmitted and NACK received 
+#define TWI_MTX_ADR_NACK           0x20  // SLA+W has been tramsmitted and NACK received
 #define TWI_MTX_DATA_ACK           0x28  // Data byte has been tramsmitted and ACK received
-#define TWI_MTX_DATA_NACK          0x30  // Data byte has been tramsmitted and NACK received 
+#define TWI_MTX_DATA_NACK          0x30  // Data byte has been tramsmitted and NACK received
 
-// TWI Master Receiver staus codes  
+// TWI Master Receiver staus codes
 #define TWI_MRX_ADR_ACK            0x40  // SLA+R has been tramsmitted and ACK received
 #define TWI_MRX_ADR_NACK           0x48  // SLA+R has been tramsmitted and NACK received
 #define TWI_MRX_DATA_ACK           0x50  // Data byte has been received and ACK tramsmitted
