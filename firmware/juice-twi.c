@@ -132,6 +132,8 @@ int main(void)
 
     sei();
 
+    adc_start();
+
 #ifdef RTC_DEBUG
     /* Test printouts */
     stdout = stdin = &rs232_stream;
