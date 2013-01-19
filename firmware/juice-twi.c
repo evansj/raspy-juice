@@ -205,11 +205,11 @@ ISR(TWI_vect)
 	}
 	else if (reg == ADCDAT6) {
 		adc_value = adc[0];
-		prep_data = adc_value >> 8;
+		prep_data = (adc_value >> 8) & 0x00ff;
 	}
 	else if (reg == ADCDAT7) {
 		adc_value = adc[1];
-		prep_data = adc_value >> 8;
+		prep_data = (adc_value >> 8) & 0x00ff;
 	}
 #if 0
 	// TODO: have to re-think how to slave-xmit multiple bytes for
@@ -272,7 +272,7 @@ ISR(TWI_vect)
 		prep_data = ADCL;
 	    }
 	    else if (reg == ADCDAT6 || reg == ADCDAT7) {
-		prep_data = (adc_value << 8) >> 8;
+		prep_data = adc_value & 0x00ff;
 	    }
 	    else if (reg == RS232D) {
 		if (rs232_havechar())
