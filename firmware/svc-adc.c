@@ -3,7 +3,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-volatile uint16_t adc[2]={0,0};
+volatile uint16_t adc[2]={15,30};
 
 void adc_init()
 {
@@ -41,15 +41,11 @@ void adc_stop()
 
 ISR(ADC_vect)
 {
-	// which ADC channel are we reading?
-	// We are reading channels 6 and 7 alternately
-	uint8_t chan = ADMUX & MUX0;
-
-	adc[chan] = ADCH;
-
-	if (chan) {
+	if (ADMUX & MUX0) {
+		adc[1] = ADCH;
 		ADMUX &= ~(1 << MUX0);
 	} else {
+		adc[0] = ADCH;
 		ADMUX |= (1 << MUX0);
 	}
 }
