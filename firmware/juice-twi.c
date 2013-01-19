@@ -49,7 +49,7 @@ FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar,
 volatile static unsigned char twi_state = 0;
 
 unsigned char i2c_buf[20];
-
+uint16_t adc_value = 0;
 unsigned char led_state = 1;
 long led_counter = 0, led_timing[4] = { 500000L, 40000L, 20000L, 40000L };
 
@@ -203,6 +203,14 @@ ISR(TWI_vect)
 	if (reg == ADCDAT) {
 	    prep_data = ADCH;
 	}
+	else if (reg == ADCDAT6) {
+		adc_value = adc[0];
+		prep_data = adc_value >> 8;
+	}
+	else if (reg == ADCDAT7) {
+		adc_value = adc[1];
+		prep_data = adc_value >> 8;
+	}
 #if 0
 	// TODO: have to re-think how to slave-xmit multiple bytes for
 	// received data with ack/nack. Can't put the below lines because
@@ -263,11 +271,8 @@ ISR(TWI_vect)
 	    else if (reg == ADCDAT) {
 		prep_data = ADCL;
 	    }
-	    else if (reg == ADCDAT6) {
-		prep_data = adc[0];
-	    }
-	    else if (reg == ADCDAT7) {
-		prep_data = adc[1];
+	    else if (reg == ADCDAT6 || reg == ADCDAT7) {
+		prep_data = (adc_value << 8) >> 8;
 	    }
 	    else if (reg == RS232D) {
 		if (rs232_havechar())

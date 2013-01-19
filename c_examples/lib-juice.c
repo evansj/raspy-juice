@@ -73,13 +73,13 @@ int rj_readadc(unsigned char mux)
 int rj_readadc6()
 {
     int rval;
-    rval = rj_readbyte(ADCDAT6);
+    rval = rj_readword(ADCDAT6);
     return rval;
 }
 int rj_readadc7()
 {
     int rval;
-    rval = rj_readbyte(ADCDAT7);
+    rval = rj_readword(ADCDAT7);
     return rval;
 }
 
