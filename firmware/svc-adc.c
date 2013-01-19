@@ -1,4 +1,5 @@
 #include "juice.h"
+#include "svc-adc.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 

@@ -67,7 +67,7 @@ unsigned char i2c_inACK(void)
     /* Read one byte from the I2C device, request more data from device */
     TWCR = (1<<TWINT) | (1<<TWEN) | (1<<TWEA);
     while(!(TWCR & (1<<TWINT)))
-	;    
+	;
     return TWDR;
 }
 

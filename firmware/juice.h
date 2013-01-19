@@ -128,8 +128,6 @@ int rs485_getchar(FILE *stream);
 void servo_init(void);
 void servo_set(unsigned char chan, int usec);
 
-extern volatile uint16_t adc[];
-
 void adc_init(void);
 void adc_start(void);
 void adc_stop(void);

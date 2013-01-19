@@ -18,6 +18,8 @@ char *rj_getversion(void);
 int rj_setservo(int chan, int usec);
 int rj_readstat(void);
 int rj_readadc(unsigned char mux);
+int rj_readadc6(void);
+int rj_readadc7(void);
 
 int rj232_setbaud(int speed);
 int rj232_getc(void);

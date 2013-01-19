@@ -13,16 +13,17 @@ int main(int argc, char *argv[])
     char *version;
 
     int count = 0;
-    int i, rval, stat, b, adc_v;
-    double volts = 0.0;
-    
+    int rval, stat, b, adc_v6, adc_v7;
+    double volts6 = 0.0;
+    double volts7 = 0.0;
+
     int servo0pwm = 1500, servo0spddir = 50;
     int servo1pwm = 1500, servo1spddir = 100;
     int servo2pwm = 1500, servo2spddir = 150;
     int servo3pwm = 1500, servo3spddir = 200;
 
     printf("Hello, world!\n");
-    
+
     rval = rj_open(devbusname, i2caddr);
     if (rval < 0) {
 	printf("open %s: failed, rval = %d\n", devbusname, rval);
@@ -53,7 +54,7 @@ int main(int argc, char *argv[])
 
 	count++;
 	printf("\33[2K\r%06d:", count);
-	
+
 	stat = rj_readstat();
 	if (stat >= 0) {
 	  for (b = 7; b >= 0; b--)
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
 	    for (i = 0; inbuf[i] != 0; i++)
 		printf("0x%02x ", inbuf[i]);
 	    printf("\n");
-		    
+
 	}
 
 	if (stat & RXA232) {
@@ -91,17 +92,17 @@ int main(int argc, char *argv[])
 	if ((count % 10) == 0) {
 	    sprintf(outbuf, "Hello 232!!! count = %d\n\r", count);
 	    rj232_send(outbuf, strlen(outbuf));
-	    sprintf(outbuf, "Hello 485!!! count = %d\n\r", count); 
+	    sprintf(outbuf, "Hello 485!!! count = %d\n\r", count);
 	    rj485_send(outbuf, strlen(outbuf));
 	}
 #endif
-	
-	adc_v = rj_readadc(0x47) & 0x3ff;
-	volts = (3.3 * (10000 + 470 + 1000) / 1000) * adc_v / 0x3ff;
-	printf("  ADC = 0x%04x, % 4d, %f ", adc_v, adc_v, volts);
 
-	for(i = 0; i < 2 * volts; i++)
-	    printf("*");
+	adc_v6 = rj_readadc6();
+	adc_v7 = rj_readadc7();
+	volts6 = (3.3 * (10000 + 470 + 1000) / 1000) * adc_v6 / 0x3ff;
+	volts7 = (3.3 * (10000 + 470 + 1000) / 1000) * adc_v7 / 0x3ff;
+	printf("  ADC6 = 0x%04x, % 4d, %f ", adc_v6, adc_v6, volts6);
+	printf("  ADC7 = 0x%04x, % 4d, %f ", adc_v7, adc_v7, volts7);
 
 	fflush(stdout);
 
@@ -128,6 +129,6 @@ int main(int argc, char *argv[])
 
 	usleep(100000);
     }
-    
+
 }
 

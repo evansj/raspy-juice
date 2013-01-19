@@ -33,6 +33,7 @@
  ***********************************************************************/
 
 #include "juice.h"
+#include "svc-adc.h"
 #include <avr/wdt.h>
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>

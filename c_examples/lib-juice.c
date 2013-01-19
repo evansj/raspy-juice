@@ -69,7 +69,19 @@ int rj_readadc(unsigned char mux)
     rval = rj_writebyte(ADCMUX, mux);
     rval = rj_readword(ADCDAT);
     return rval;
-} 
+}
+int rj_readadc6()
+{
+    int rval;
+    rval = rj_readword(ADCDAT6);
+    return rval;
+}
+int rj_readadc7()
+{
+    int rval;
+    rval = rj_readword(ADCDAT7);
+    return rval;
+}
 
 int rj232_getc(void)
 {
@@ -107,7 +119,7 @@ int rj232_send(unsigned char *buf, int len)
     for (i = 0; i < len; i++)
 	rval = rj_writebyte(RS232D, *buf++);
     return rval;
-} 
+}
 
 int rj485_send(unsigned char *buf, int len)
 {
@@ -132,12 +144,12 @@ int rj_readbyte(int subreg)
 	    usleep(RETRY_TIMEOUT);
 	}
     } while ((rval < 0) && (retry > 0));
-    
+
     if (rval < 0)
 	fprintf(stderr, "i2c_smbus_read_byte_data failed.\n");
 
     return rval;
-}   
+}
 
 int rj_readword(int subreg)
 {
@@ -154,7 +166,7 @@ int rj_readword(int subreg)
 	fprintf(stderr, "i2c_smbus_read_word_data failed.\n");
 
     return rval;
-}   
+}
 
 int rj_readblock(int subreg, void *inbuf)
 {
@@ -166,7 +178,7 @@ int rj_readblock(int subreg, void *inbuf)
 	    usleep(RETRY_TIMEOUT);
 	}
     } while ((rval < 0) && (retry > 0));
-   
+
     if (rval < 0)
 	fprintf(stderr, "i2c_smbus_read_block_data failed.\n");
 
@@ -189,7 +201,7 @@ int rj_writebyte(int subreg, int data)
 	fprintf(stderr, "i2c_smbus_write_byte_data failed.\n");
 
     return rval;
-}   
+}
 
 int rj_writeword(int subreg, int data)
 {
@@ -206,7 +218,7 @@ int rj_writeword(int subreg, int data)
 	fprintf(stderr, "i2c_smbus_write_word_data failed.\n");
 
     return rval;
-}   
+}
 
 struct avr_swuart_baud_setting {
     int bps;
@@ -228,10 +240,10 @@ int avr_rates_max = sizeof(avr_rates) / sizeof (avr_swuart_baud_setting);
 int rj232_setbaud(int bps)
 {
     int i = 0;
-    
+
     while (i < avr_rates_max) {
 	if (avr_rates[i].bps == bps) {
-	    return rj_writeword(BPS232, (avr_rates[i].prescaler << 8) | 
+	    return rj_writeword(BPS232, (avr_rates[i].prescaler << 8) |
 				(avr_rates[i].ticks));
 	}
 	i++;
@@ -245,7 +257,7 @@ struct avr_usart_baud_setting {
 } avr_usart_baud_setting;
 
 #define F_CPU 14745600UL
-#define UBRR_V(BAUD) (F_CPU / 16 / (unsigned long)(BAUD) - 1) 
+#define UBRR_V(BAUD) (F_CPU / 16 / (unsigned long)(BAUD) - 1)
 
 struct avr_usart_baud_setting avr_ubrrs[] = {
     { 1200,	UBRR_V(1200)	},
@@ -264,7 +276,7 @@ int avr_ubrrs_max = sizeof(avr_ubrrs) / sizeof (avr_usart_baud_setting);
 int rj485_setbaud(int bps)
 {
     int i = 0;
-    
+
     while (i < avr_ubrrs_max) {
 	if (avr_ubrrs[i].bps == bps)
 	    return rj_writeword(BPS485, avr_ubrrs[i].ubrr);
