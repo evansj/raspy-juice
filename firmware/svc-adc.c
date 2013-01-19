@@ -10,6 +10,8 @@ void adc_init()
     // Set clock prescaler to 128
     ADCSRA = (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
 
+	ADMUX |= (1 << REFS0); // Set ADC reference to AVCC
+
     // Right adjust for 8 bit resolution
     // ADMUX |= (1 << ADLAR);
 
@@ -52,23 +54,17 @@ ISR(ADC_vect)
 	ADCval = ADCL;
     ADCval = (ADCH << 8) + ADCval;    // ADCH is read so ADC can be updated again
 
-    if (reg == 6)
-    {
-        //adc[0] = ADCval;
-        adc[0]++;
+    if (reg == 6) {
+        adc[0] = ADCval;
+        // adc[0]++;
         mux = ADMUX;
         mux &= 0xF8; // clear last 3 bits
         ADMUX = mux | 7;
-    }
-    else if (reg == 7)
-    {
-        //adc[1] = ADCval;
-        adc[1]++;
+    } else {
+        adc[1] = ADCval;
+        // adc[1]++;
         mux = ADMUX;
         mux &= 0xF8; // clear last 3 bits
         ADMUX = mux | 6;
-    } else {
-    	adc[0] = 0xabcd;
-    	adc[1] = 0xabcd;
     }
 }
