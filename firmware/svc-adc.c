@@ -3,7 +3,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-volatile uint16_t adc[]={15,30};
+volatile int adc[]={15,30};
 
 void adc_init()
 {
@@ -12,9 +12,6 @@ void adc_init()
 
     // Right adjust for 8 bit resolution
     // ADMUX |= (1 << ADLAR);
-
-    // Read ADC6 first
-    ADMUX |= (1<<MUX2) | (1<<MUX1);
 
     // Set auto-trigger enable
     ADCSRA |= (1 << ADATE);
@@ -30,6 +27,8 @@ void adc_init()
  */
 void adc_start()
 {
+    // Read ADC6 first
+    ADMUX |= 6;
 	ADCSRA |= (1 << ADSC);
 }
 
@@ -47,9 +46,9 @@ ISR(ADC_vect)
 	uint8_t mux, reg;           // temp registers for storage of misc data
 
     mux = ADMUX;            	// read the value of ADMUX register
-    reg = mux & 0x0F;           // AND the first 4 bits (value of ADC pin being used)
+    reg = mux & 0x07;           // AND the first 3 bits (value of ADC pin being used)
 
-	uint16_t ADCval;
+	int ADCval;
 	ADCval = ADCL;
     ADCval = (ADCH << 8) + ADCval;    // ADCH is read so ADC can be updated again
 
@@ -58,14 +57,13 @@ ISR(ADC_vect)
         adc[0] = ADCval;
         mux = ADMUX;
         mux &= 0xF8; // clear last 3 bits
-        mux |= (1<<MUX2) | (1<<MUX1) | (1<<MUX0);
-        ADMUX = mux;
+        ADMUX = mux | 7;
     }
     else if (reg == 7)
     {
         adc[1] = ADCval;
         mux = ADMUX;
         mux &= 0xF8; // clear last 3 bits
-        mux |= (1<<MUX2) | (1<<MUX1);
+        ADMUX = mux | 6;
     }
 }

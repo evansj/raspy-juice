@@ -49,7 +49,7 @@ FILE rs232_stream = FDEV_SETUP_STREAM(rs232_putchar, rs232_getchar,
 volatile static unsigned char twi_state = 0;
 
 unsigned char i2c_buf[20];
-uint16_t adc_value = 0;
+int adc_value = 0;
 unsigned char led_state = 1;
 long led_counter = 0, led_timing[4] = { 500000L, 40000L, 20000L, 40000L };
 
