@@ -54,16 +54,21 @@ ISR(ADC_vect)
 
     if (reg == 6)
     {
-        adc[0] = ADCval;
+        //adc[0] = ADCval;
+        adc[0]++;
         mux = ADMUX;
         mux &= 0xF8; // clear last 3 bits
         ADMUX = mux | 7;
     }
     else if (reg == 7)
     {
-        adc[1] = ADCval;
+        //adc[1] = ADCval;
+        adc[1]++;
         mux = ADMUX;
         mux &= 0xF8; // clear last 3 bits
         ADMUX = mux | 6;
+    } else {
+    	adc[0] = 0xabcd;
+    	adc[1] = 0xabcd;
     }
 }
