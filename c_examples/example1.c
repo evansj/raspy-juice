@@ -97,6 +97,8 @@ int main(int argc, char *argv[])
 	}
 #endif
 
+	printf("\n\r");
+
 	adc_v6 = rj_readadc6();
 	adc_v7 = rj_readadc7();
 	volts6 = (3.3 * (10000 + 470 + 1000) / 1000) * adc_v6 / 0x3ff;
